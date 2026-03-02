@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Connectivity and Attendance Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #030712;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 64px 64px;
+      pointer-events: none;
+    }
+
+    /* Desktop guard */
+    #desktop-guard {
+      display: none;
+      text-align: center;
+      max-width: 360px;
+    }
+
+    #desktop-guard .guard-icon {
+      width: 96px; height: 96px;
+      border-radius: 16px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+
+    #desktop-guard .guard-icon svg { width: 48px; height: 48px; color: #f87171; }
+    #desktop-guard h1 { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: .5rem; }
+    #desktop-guard p { color: #6b7280; font-size: .875rem; line-height: 1.6; }
+    #desktop-guard .width-badge {
+      margin-top: 1.5rem;
+      padding: .5rem 1rem;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      display: inline-block;
+      color: #6b7280;
+      font-size: .75rem;
+    }
+    #desktop-guard .width-badge span { color: #facc15; }
+
+    /* Main container */
+    #main-content { width: 100%; max-width: 420px; position: relative; z-index: 1; }
+
+    .header { text-align: center; margin-bottom: 2rem; }
+
+    .logo {
+      width: 56px; height: 56px;
+      background: #2563eb;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+      box-shadow: 0 8px 24px rgba(37,99,235,0.35);
+    }
+
+    .logo svg { width: 28px; height: 28px; color: #fff; }
+    .header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: -.025em; }
+    .header p { color: #6b7280; font-size: .875rem; margin-top: .25rem; }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .field { margin-bottom: 1.25rem; }
+
+    label {
+      display: block;
+      font-size: .7rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: .5rem;
+    }
+
+    input {
+      width: 100%;
+      background: #030712;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      padding: .75rem 1rem;
+      color: #fff;
+      font-size: .875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+
+    .password-wrap { position: relative; }
+
+    .toggle-pw {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: #4b5563;
+      padding: 0; display: flex; align-items: center;
+    }
+
+    .toggle-pw:hover { color: #9ca3af; }
+    .toggle-pw svg { width: 18px; height: 18px; }
+
+    .error-box {
+      display: none;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px;
+      padding: .75rem 1rem;
+      margin-bottom: 1rem;
+      color: #f87171;
+      font-size: .8rem;
+      display: flex;
+      align-items: flex-start;
+      gap: .5rem;
+    }
+
+    .error-box svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    .btn {
+      width: 100%;
+      padding: .85rem;
+      border-radius: 10px;
+      border: none;
+      background: #2563eb;
+      color: #fff;
+      font-size: .875rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s;
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      margin-top: .5rem;
+    }
+
+    .btn:hover:not(:disabled) { background: #3b82f6; }
+    .btn:disabled { background: #1f2937; color: #4b5563; cursor: not-allowed; }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .card-footer {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #1f2937;
+      text-align: center;
+      color: #4b5563;
+      font-size: .75rem;
+    }
+
+    .card-footer a { color: #60a5fa; text-decoration: none; }
+    .card-footer a:hover { color: #93c5fd; }
+
+    .role-hints {
+      display: flex; gap: .75rem; margin-top: 1rem;
+    }
+
+    .role-hint {
+      flex: 1; background: rgba(17,24,39,0.5);
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      padding: .5rem .75rem;
+      text-align: center;
+      font-size: .7rem;
+      color: #4b5563;
+    }
+
+    .role-hint .teacher { color: #60a5fa; font-weight: 600; }
+    .role-hint .student { color: #34d399; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <!-- Desktop Guard -->
+  <div id="desktop-guard">
+    <div class="guard-icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#f87171">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <h1>Desktop Required</h1>
+    <p style="color:#f87171;font-size:.8rem;margin-bottom:.5rem">for Monitoring</p>
+    <p>This application requires a screen width of at least <strong style="color:#f87171;font-family:monospace">1024px</strong>. Please switch to a desktop or laptop.</p>
+    <div class="width-badge">Current width: <span id="screen-width"></span>px</div>
+  </div>
+
+  <!-- Main Login -->
+  <div id="main-content">
+    <div class="header">
+      <div class="logo">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <h1>Connectivity and Attendance Monitor</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="you@school.edu" />
+      </div>
+
+      <div class="field">
+        <label>Password</label>
+        <div class="password-wrap">
+          <input type="password" id="password" placeholder="••••••••" />
+          <button class="toggle-pw" onclick="togglePassword()" id="toggle-btn">
+            <svg id="eye-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="error-box" id="error-box">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span id="error-text"></span>
+      </div>
+
+      <button class="btn" id="login-btn" onclick="handleLogin()">Sign In</button>
+
+      <div class="card-footer">
+        Don't have an account? <a href="signup.html">Sign up</a>
+      </div>
+    </div>
+
+    <div class="role-hints">
+      <div class="role-hint"><span class="teacher">Teachers</span> → /admin.html</div>
+      <div class="role-hint"><span class="student">Students</span> → /student.html</div>
+    </div>
+  </div>
+
+  <script>
+    // ── Desktop Guard ──────────────────────────────────────────
+    const w = window.innerWidth;
+    document.getElementById('screen-width').textContent = w;
+    if (w < 1024) {
+      document.getElementById('desktop-guard').style.display = 'block';
+      document.getElementById('main-content').style.display = 'none';
+    }
+
+    // ── Supabase ───────────────────────────────────────────────
+    const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
+    const { createClient }  = supabase;
+    const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ── Toggle password visibility ─────────────────────────────
+    function togglePassword() {
+      const input = document.getElementById('password');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    // ── Show error ─────────────────────────────────────────────
+    function showError(msg) {
+      const box = document.getElementById('error-box');
+      box.style.display = 'flex';
+      document.getElementById('error-text').textContent = msg;
+    }
+
+    function hideError() {
+      document.getElementById('error-box').style.display = 'none';
+    }
+
+    // ── Set loading state ──────────────────────────────────────
+    function setLoading(loading) {
+      const btn = document.getElementById('login-btn');
+      btn.disabled = loading;
+      btn.innerHTML = loading
+        ? '<div class="spinner"></div> Signing in...'
+        : 'Sign In';
+    }
+
+    // ── Handle login ───────────────────────────────────────────
+    async function handleLogin() {
+      hideError();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        showError('Please fill in all fields.');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // 1. Sign in
+        const { data: authData, error: authError } =
+          await client.auth.signInWithPassword({ email, password });
+
+        if (authError) throw new Error(authError.message);
+
+        // 2. Fetch role from profiles
+        const { data: profile, error: profileError } = await client
+          .from('profiles')
+          .select('role')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError) throw new Error('Could not fetch user profile.');
+
+        // 3. Redirect based on role
+        if (profile.role === 'teacher') {
+          window.location.href = 'admin.html';
+        } else if (profile.role === 'student') {
+          window.location.href = 'student.html';
+        } else {
+          throw new Error('Unknown role. Contact your administrator.');
+        }
+
+      } catch (err) {
+        showError(err.message);
+        setLoading(false);
+      }
+    }
+
+    // Allow Enter key to submit
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+  </script>
+</body>
+</html>

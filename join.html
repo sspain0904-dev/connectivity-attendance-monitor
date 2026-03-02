@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join Session</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #030712;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 64px 64px;
+      pointer-events: none;
+    }
+
+    /* Desktop guard */
+    #desktop-guard {
+      display: none;
+      text-align: center;
+      max-width: 360px;
+    }
+    #desktop-guard .guard-icon {
+      width: 96px; height: 96px; border-radius: 16px;
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+    #desktop-guard h1 { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: .5rem; }
+    #desktop-guard p { color: #6b7280; font-size: .875rem; line-height: 1.6; }
+    .width-badge {
+      margin-top: 1.5rem; padding: .5rem 1rem;
+      background: #111827; border: 1px solid #1f2937;
+      border-radius: 8px; display: inline-block;
+      color: #6b7280; font-size: .75rem;
+    }
+    .width-badge span { color: #facc15; }
+
+    #main-content { width: 100%; max-width: 420px; position: relative; z-index: 1; }
+
+    .header { text-align: center; margin-bottom: 2rem; }
+    .logo {
+      width: 56px; height: 56px; background: #059669;
+      border-radius: 14px; display: flex;
+      align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+      box-shadow: 0 8px 24px rgba(5,150,105,0.35);
+    }
+    .logo svg { width: 28px; height: 28px; color: #fff; }
+    .header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .header p { color: #6b7280; font-size: .875rem; margin-top: .25rem; }
+
+    .card {
+      background: #111827; border: 1px solid #1f2937;
+      border-radius: 16px; padding: 2rem;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block; font-size: .7rem; font-weight: 600;
+      color: #6b7280; text-transform: uppercase;
+      letter-spacing: .1em; margin-bottom: .5rem;
+    }
+
+    input[type="text"] {
+      width: 100%; background: #030712;
+      border: 1px solid #1f2937; border-radius: 10px;
+      padding: 1rem; color: #fff; font-size: 1.5rem;
+      font-family: 'Courier New', monospace;
+      letter-spacing: .5em; text-align: center;
+      text-transform: uppercase; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #059669;
+      box-shadow: 0 0 0 3px rgba(5,150,105,0.15);
+    }
+
+    .error-box {
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px; padding: .75rem 1rem; margin-top: .75rem;
+      color: #f87171; font-size: .8rem; display: none;
+    }
+
+    .btn {
+      width: 100%; padding: .85rem; border-radius: 10px;
+      border: none; color: #fff; font-size: .875rem;
+      font-weight: 700; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      transition: background .15s; margin-top: 1rem;
+    }
+
+    .btn-green { background: #059669; }
+    .btn-green:hover:not(:disabled) { background: #10b981; }
+    .btn-blue { background: #2563eb; }
+    .btn-blue:hover:not(:disabled) { background: #3b82f6; }
+    .btn:disabled { background: #1f2937; color: #4b5563; cursor: not-allowed; }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Network check card */
+    .net-card {
+      background: #111827; border: 1px solid #1f2937;
+      border-radius: 16px; padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .net-header {
+      display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem;
+    }
+
+    .net-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.2);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .net-icon svg { width: 18px; height: 18px; color: #60a5fa; }
+
+    .net-title { color: #fff; font-size: .875rem; font-weight: 600; }
+    .net-sub { color: #6b7280; font-size: .7rem; }
+
+    .ping-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #030712; border-radius: 8px;
+      padding: .5rem 1rem; margin-bottom: .5rem;
+      font-size: .75rem;
+    }
+    .ping-label { color: #6b7280; }
+    .ping-value { font-weight: 700; font-family: 'Courier New', monospace; }
+    .green { color: #34d399; }
+    .yellow { color: #fbbf24; }
+    .red { color: #f87171; }
+    .gray { color: #4b5563; }
+
+    .avg-box {
+      border-radius: 10px; padding: .75rem 1rem;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1rem; border: 1px solid;
+    }
+    .avg-box .avg-label { color: #d1d5db; font-size: .875rem; }
+    .avg-box .avg-val { font-size: 1.25rem; font-weight: 700; font-family: 'Courier New', monospace; }
+    .avg-box .avg-rating { font-size: .65rem; }
+
+    .footer-link {
+      text-align: center; color: #4b5563; font-size: .75rem; margin-top: .75rem;
+    }
+    .footer-link a { color: #60a5fa; text-decoration: none; }
+    .footer-link a:hover { color: #93c5fd; }
+  </style>
+</head>
+<body>
+
+  <!-- Desktop Guard -->
+  <div id="desktop-guard">
+    <div class="guard-icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#f87171;width:48px;height:48px">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <h1>Desktop Required</h1>
+    <p style="color:#f87171;font-size:.8rem;margin-bottom:.5rem">for Monitoring</p>
+    <p>Please use a desktop or laptop with at least <strong style="color:#f87171;font-family:monospace">1024px</strong> screen width.</p>
+    <div class="width-badge">Current width: <span id="screen-width"></span>px</div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="main-content">
+
+    <div class="header">
+      <div class="logo">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+        </svg>
+      </div>
+      <h1>Join Session</h1>
+      <p>Enter your class passcode to check in</p>
+    </div>
+
+    <!-- Passcode Card -->
+    <div class="card">
+      <label>Session Passcode</label>
+      <input type="text" id="passcode" placeholder="XXXXXXXX" maxlength="8"
+        oninput="this.value = this.value.toUpperCase()" />
+      <div class="error-box" id="error-box"></div>
+      <button class="btn btn-green" id="join-btn" onclick="handleJoin()">Join Session</button>
+    </div>
+
+    <!-- Network Check Card -->
+    <div class="net-card">
+      <div class="net-header">
+        <div class="net-icon">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+          </svg>
+        </div>
+        <div>
+          <div class="net-title">Network Check</div>
+          <div class="net-sub">Ping server 5 times</div>
+        </div>
+      </div>
+
+      <div id="ping-results"></div>
+      <div id="avg-result"></div>
+
+      <button class="btn btn-blue" id="ping-btn" onclick="runNetworkCheck()">
+        Run Network Check
+      </button>
+    </div>
+
+    <div class="footer-link">
+      Wrong page? <a href="login.html">Back to login</a>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Desktop Guard ──────────────────────────────────────────
+    const w = window.innerWidth;
+    document.getElementById('screen-width').textContent = w;
+    if (w < 1024) {
+      document.getElementById('desktop-guard').style.display = 'block';
+      document.getElementById('main-content').style.display = 'none';
+    }
+
+    // ── Supabase ───────────────────────────────────────────────
+    const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0'
+    const { createClient }  = supabase;
+    const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ── Join session ───────────────────────────────────────────
+    async function handleJoin() {
+      const passcode = document.getElementById('passcode').value.trim();
+      const errorBox = document.getElementById('error-box');
+      errorBox.style.display = 'none';
+
+      if (!passcode) {
+        errorBox.textContent = 'Please enter a passcode.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('join-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Joining...';
+
+      try {
+        const { data: session, error } = await client
+          .from('sessions')
+          .select('id, is_active')
+          .eq('passcode', passcode)
+          .single();
+
+        if (error || !session) throw new Error('Invalid passcode. Try again.');
+        if (!session.is_active) throw new Error('This session is not active yet.');
+
+        // Store session id and redirect to student dashboard
+        localStorage.setItem('active_session_id', session.id);
+        window.location.href = 'student.html';
+
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = 'Join Session';
+      }
+    }
+
+    // ── Network Check ──────────────────────────────────────────
+    async function measureLatency() {
+      const start = performance.now();
+      try {
+        await fetch(SUPABASE_URL + '/health', { method: 'HEAD', cache: 'no-store' });
+        return Math.round(performance.now() - start);
+      } catch { return null; }
+    }
+
+    function latencyColor(ms) {
+      if (ms === null) return 'red';
+      if (ms < 100) return 'green';
+      if (ms < 300) return 'yellow';
+      return 'red';
+    }
+
+    async function runNetworkCheck() {
+      const btn = document.getElementById('ping-btn');
+      const resultsEl = document.getElementById('ping-results');
+      const avgEl = document.getElementById('avg-result');
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Running...';
+      resultsEl.innerHTML = '';
+      avgEl.innerHTML = '';
+
+      const latencies = [];
+
+      for (let i = 1; i <= 5; i++) {
+        const ms = await measureLatency();
+        latencies.push(ms);
+        const color = latencyColor(ms);
+        resultsEl.innerHTML += `
+          <div class="ping-row">
+            <span class="ping-label">Ping #${i}</span>
+            <span class="ping-value ${color}">${ms === null ? 'Failed' : ms + 'ms'}</span>
+          </div>`;
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      const valid = latencies.filter(ms => ms !== null);
+
+      if (valid.length > 0) {
+        const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+        const color = latencyColor(avg);
+        const rating = avg < 100 ? 'Excellent' : avg < 300 ? 'Good' : 'Poor';
+        const bgMap = { green: 'rgba(52,211,153,0.1)', yellow: 'rgba(251,191,36,0.1)', red: 'rgba(248,113,113,0.1)' };
+        const bdMap = { green: 'rgba(52,211,153,0.3)', yellow: 'rgba(251,191,36,0.3)', red: 'rgba(248,113,113,0.3)' };
+
+        avgEl.innerHTML = `
+          <div class="avg-box" style="background:${bgMap[color]};border-color:${bdMap[color]};margin-top:.75rem">
+            <span class="avg-label">Average Latency</span>
+            <div style="text-align:right">
+              <div class="avg-val ${color}">${avg}ms</div>
+              <div class="avg-rating ${color}">${rating}</div>
+            </div>
+          </div>`;
+      } else {
+        avgEl.innerHTML = `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:.75rem;text-align:center;color:#f87171;font-size:.8rem;margin-top:.75rem">All pings failed. Check your connection.</div>`;
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = 'Run Again';
+    }
+
+    // Enter key for passcode
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleJoin();
+    });
+  </script>
+</body>
+</html>

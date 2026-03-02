@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #f0f2f5;
+    }
+
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    h2 {
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button:hover { background: #45a049; }
+
+    #message {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    .error { color: red; }
+    .success { color: green; }
+
+    p {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
+    a { color: #4CAF50; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Create Account</h2>
+
+    <input type="text"     id="fullname"  placeholder="Full Name" />
+    <input type="email"    id="email"     placeholder="Email" />
+    <input type="password" id="password"  placeholder="Password" />
+
+    <select id="role">
+      <option value="student">Student</option>
+      <option value="teacher">Teacher</option>
+    </select>
+
+    <button onclick="handleSignUp()">Sign Up</button>
+
+    <div id="message"></div>
+
+    <p>Already have an account? <a href="index.html">Log in</a></p>
+  </div>
+
+  <script>
+    // 🔴 REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+    const SUPABASE_URL = 'https://lxsiqkdlpknjevrebfhe.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0'
+
+    const { createClient } = supabase
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    async function handleSignUp() {
+      const fullName = document.getElementById('fullname').value.trim()
+      const email    = document.getElementById('email').value.trim()
+      const password = document.getElementById('password').value
+      const role     = document.getElementById('role').value
+      const message  = document.getElementById('message')
+
+      if (!fullName || !email || !password) {
+        message.className = 'error'
+        message.textContent = 'Please fill in all fields.'
+        return
+      }
+
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: role
+          }
+        }
+      })
+
+      if (error) {
+        message.className = 'error'
+        message.textContent = error.message
+      } else {
+        message.className = 'success'
+        message.textContent = 'Account created! Check your email to confirm.'
+      }
+    }
+  </script>
+
+</body>
+</html>

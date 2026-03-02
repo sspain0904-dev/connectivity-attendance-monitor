@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard | Monitoring Active</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #030712;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      border-bottom: 1px solid #1f2937;
+      background: rgba(17,24,39,0.8);
+      backdrop-filter: blur(8px);
+      padding: .75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: .75rem; }
+
+    .topbar-logo {
+      width: 32px; height: 32px; background: #2563eb;
+      border-radius: 8px; display: flex;
+      align-items: center; justify-content: center;
+    }
+    .topbar-logo svg { width: 16px; height: 16px; color: #fff; }
+
+    .topbar-name { font-size: .875rem; font-weight: 700; color: #fff; }
+    .topbar-sub  { font-size: .7rem; color: #6b7280; }
+
+    .status-dot-wrap { display: flex; align-items: center; gap: .5rem; }
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      transition: background .3s;
+    }
+    .status-dot.connected    { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,.5); animation: pulse 2s infinite; }
+    .status-dot.connecting   { background: #fbbf24; }
+    .status-dot.disconnected { background: #f87171; }
+    .status-label { font-size: .75rem; color: #6b7280; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .5; }
+    }
+
+    /* ── Stats grid ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; padding: 1.5rem;
+    }
+
+    .stat-card {
+      background: #111827; border: 1px solid #1f2937;
+      border-radius: 12px; padding: 1rem;
+    }
+
+    .stat-header {
+      display: flex; align-items: center; gap: .5rem;
+      color: #6b7280; margin-bottom: .5rem;
+    }
+    .stat-header svg { width: 16px; height: 16px; }
+    .stat-header span { font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; }
+
+    .green  { color: #34d399; }
+    .blue   { color: #60a5fa; }
+    .purple { color: #a78bfa; }
+    .yellow { color: #fbbf24; }
+    .red    { color: #f87171; }
+    .gray   { color: #6b7280; }
+
+    /* ── Log panel ── */
+    .log-panel {
+      margin: 0 1.5rem 1.5rem;
+      background: #111827; border: 1px solid #1f2937;
+      border-radius: 12px; overflow: hidden;
+    }
+
+    .log-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .75rem 1rem; border-bottom: 1px solid #1f2937;
+    }
+
+    .log-header span { font-size: .7rem; color: #6b7280; text-transform: uppercase; letter-spacing: .1em; }
+    .log-count { font-size: .7rem; color: #4b5563; }
+
+    .log-body {
+      height: 260px; overflow-y: auto; padding: 1rem;
+      display: flex; flex-direction: column; gap: .5rem;
+    }
+
+    .log-entry { display: flex; align-items: flex-start; gap: .75rem; font-size: .75rem; }
+    .log-time  { color: #4b5563; flex-shrink: 0; width: 64px; }
+    .log-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+    .log-dot.info      { background: #60a5fa; }
+    .log-dot.heartbeat { background: #34d399; }
+    .log-dot.presence  { background: #a78bfa; }
+    .log-dot.handshake { background: #fbbf24; }
+    .log-dot.warn      { background: #fb923c; }
+    .log-dot.error     { background: #f87171; }
+    .log-msg.info      { color: #93c5fd; }
+    .log-msg.heartbeat { color: #6ee7b7; }
+    .log-msg.presence  { color: #c4b5fd; }
+    .log-msg.handshake { color: #fde68a; }
+    .log-msg.warn      { color: #fdba74; }
+    .log-msg.error     { color: #fca5a5; }
+
+    .log-empty { color: #4b5563; font-size: .75rem; text-align: center; margin-top: 2rem; }
+
+    /* ── Footer ── */
+    .session-footer {
+      margin: 0 1.5rem 1.5rem;
+      background: rgba(17,24,39,.5); border: 1px solid #1f2937;
+      border-radius: 12px; padding: .75rem 1rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .session-footer span { font-size: .7rem; color: #4b5563; }
+
+    /* ── Handshake Modal ── */
+    #handshake-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+
+    #handshake-overlay.show { display: flex; }
+
+    .modal {
+      background: #111827; border: 1px solid #374151;
+      border-radius: 20px; padding: 2rem;
+      width: 100%; max-width: 360px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.7);
+    }
+
+    .modal-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+    }
+    .modal-icon svg { width: 24px; height: 24px; color: #fbbf24; }
+
+    .modal h2 { text-align: center; font-size: 1.125rem; font-weight: 700; color: #fff; }
+    .modal p  { text-align: center; color: #6b7280; font-size: .8rem; margin-top: .25rem; }
+
+    /* Timer ring */
+    .timer-wrap {
+      display: flex; justify-content: center; margin: 1.5rem 0;
+      position: relative;
+    }
+    .timer-wrap svg { transform: rotate(-90deg); }
+    .timer-num {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.5rem; font-weight: 700; color: #fff;
+    }
+
+    .modal-input {
+      width: 100%; text-align: center;
+      font-size: 1.5rem; font-family: 'Courier New', monospace;
+      letter-spacing: .5em; text-transform: uppercase;
+      background: #030712; border: 1px solid #374151;
+      border-radius: 12px; padding: 1rem; color: #fff;
+      outline: none; transition: border-color .15s, box-shadow .15s;
+      margin-bottom: .75rem;
+    }
+    .modal-input:focus { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,.15); }
+    .modal-input.wrong { border-color: #ef4444; }
+    .modal-input.success { border-color: #10b981; color: #34d399; }
+
+    .modal-error { color: #f87171; font-size: .75rem; text-align: center; margin-bottom: .75rem; display: none; }
+
+    .modal-btn {
+      width: 100%; padding: .85rem; border-radius: 10px;
+      border: none; background: #d97706; color: #fff;
+      font-size: .875rem; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: background .15s;
+    }
+    .modal-btn:hover:not(:disabled) { background: #f59e0b; }
+    .modal-btn:disabled { background: #1f2937; color: #4b5563; cursor: not-allowed; }
+
+    .shake {
+      animation: shake .3s ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25%       { transform: translateX(-8px); }
+      75%       { transform: translateX(8px); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="topbar-name">Student Monitor</div>
+        <div class="topbar-sub" id="student-name">Loading...</div>
+      </div>
+    </div>
+    <div class="status-dot-wrap">
+      <div class="status-dot connecting" id="status-dot"></div>
+      <span class="status-label" id="status-label">Connecting...</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-header">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span>Latency</span>
+      </div>
+      <div class="stat-value gray" id="stat-latency">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        <span>Heartbeats</span>
+      </div>
+      <div class="stat-value blue" id="stat-heartbeats">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Uptime</span>
+      </div>
+      <div class="stat-value purple" id="stat-uptime">0s</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <span>Status</span>
+      </div>
+      <div class="stat-value yellow" id="stat-status">Init</div>
+    </div>
+  </div>
+
+  <!-- Activity Log -->
+  <div class="log-panel">
+    <div class="log-header">
+      <span>Activity Log</span>
+      <span class="log-count" id="log-count">0 events</span>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-empty">Waiting for events...</div>
+    </div>
+  </div>
+
+  <!-- Session footer -->
+  <div class="session-footer">
+    <span>Session started: <span id="join-time">—</span></span>
+    <span id="user-id-display">—</span>
+  </div>
+
+  <!-- Handshake Modal -->
+  <div id="handshake-overlay">
+    <div class="modal">
+      <div class="modal-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+      </div>
+      <h2>Presence Check</h2>
+      <p>Enter the code shown by your teacher</p>
+
+      <div class="timer-wrap">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="28" fill="none" stroke="#1f2937" stroke-width="6"/>
+          <circle id="timer-ring" cx="40" cy="40" r="28" fill="none"
+            stroke="#22c55e" stroke-width="6"
+            stroke-dasharray="175.93"
+            stroke-dashoffset="0"
+            stroke-linecap="round"
+            style="transition: stroke-dashoffset 1s linear, stroke .3s"/>
+        </svg>
+        <div class="timer-num" id="timer-num">60</div>
+      </div>
+
+      <input class="modal-input" id="handshake-input" type="text"
+        placeholder="ENTER CODE" maxlength="8"
+        oninput="this.value = this.value.toUpperCase()"
+        onkeydown="if(event.key==='Enter') submitHandshake()" />
+
+      <div class="modal-error" id="modal-error">Incorrect code. Try again.</div>
+
+      <button class="modal-btn" id="handshake-btn" onclick="submitHandshake()">Confirm</button>
+    </div>
+  </div>
+
+  <script>
+    // ── Config ─────────────────────────────────────────────────
+    const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0'
+    const { createClient }  = supabase;
+    const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ── State ──────────────────────────────────────────────────
+    let currentUser    = null;
+    let currentProfile = null;
+    let channel        = null;
+    let heartbeatTimer = null;
+    let uptimeTimer    = null;
+    let handshakeTimer = null;
+    let heartbeatCount = 0;
+    let uptimeSeconds  = 0;
+    let pendingCode    = null;
+    let timerLeft      = 60;
+    const joinTime     = new Date();
+    const CIRCUMFERENCE = 175.93;
+
+    // ── Log ────────────────────────────────────────────────────
+    function addLog(type, message) {
+      const body = document.getElementById('log-body');
+      const empty = body.querySelector('.log-empty');
+      if (empty) empty.remove();
+
+      const time = new Date().toLocaleTimeString();
+      const el = document.createElement('div');
+      el.className = 'log-entry';
+      el.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-dot ${type}"></span>
+        <span class="log-msg ${type}">${message}</span>`;
+      body.insertBefore(el, body.firstChild);
+
+      // Keep max 50
+      while (body.children.length > 50) body.removeChild(body.lastChild);
+
+      document.getElementById('log-count').textContent =
+        body.children.length + ' events';
+    }
+
+    // ── Set connection status ──────────────────────────────────
+    function setStatus(status) {
+      const dot   = document.getElementById('status-dot');
+      const label = document.getElementById('status-label');
+      const stat  = document.getElementById('stat-status');
+      dot.className = 'status-dot ' + status;
+      const map = {
+        connected:    { label: 'Connected',    stat: 'Live',  cls: 'green'  },
+        connecting:   { label: 'Connecting...', stat: 'Init', cls: 'yellow' },
+        disconnected: { label: 'Disconnected',  stat: 'Off',  cls: 'red'   },
+      };
+      label.textContent = map[status].label;
+      stat.textContent  = map[status].stat;
+      stat.className    = 'stat-value ' + map[status].cls;
+    }
+
+    // ── Measure latency ────────────────────────────────────────
+    async function measureLatency() {
+      const start = performance.now();
+      try {
+        await fetch(SUPABASE_URL + '/health', { method: 'HEAD', cache: 'no-store' });
+        return Math.round(performance.now() - start);
+      } catch { return null; }
+    }
+
+    function updateLatencyDisplay(ms) {
+      const el = document.getElementById('stat-latency');
+      if (ms === null) { el.textContent = 'Timeout'; el.className = 'stat-value red'; return; }
+      el.textContent = ms + 'ms';
+      el.className = 'stat-value ' + (ms < 100 ? 'green' : ms < 300 ? 'yellow' : 'red');
+    }
+
+    // ── Uptime counter ─────────────────────────────────────────
+    function startUptime() {
+      uptimeTimer = setInterval(() => {
+        uptimeSeconds++;
+        const m = Math.floor(uptimeSeconds / 60);
+        const s = uptimeSeconds % 60;
+        document.getElementById('stat-uptime').textContent =
+          m > 0 ? `${m}m ${s}s` : `${s}s`;
+      }, 1000);
+    }
+
+    // ── Heartbeat ──────────────────────────────────────────────
+    function startHeartbeat() {
+      heartbeatTimer = setInterval(async () => {
+        const ms = await measureLatency();
+        updateLatencyDisplay(ms);
+
+        await channel.send({
+          type: 'broadcast', event: 'heartbeat',
+          payload: {
+            student_id: currentUser.id,
+            name:       currentProfile.full_name,
+            latency_ms: ms,
+            timestamp:  new Date().toISOString(),
+          }
+        });
+
+        heartbeatCount++;
+        document.getElementById('stat-heartbeats').textContent = heartbeatCount;
+        addLog(
+          ms === null ? 'error' : ms > 300 ? 'warn' : 'heartbeat',
+          `Heartbeat sent — latency: ${ms === null ? 'timeout' : ms + 'ms'}`
+        );
+      }, 10000);
+    }
+
+    // ── Handshake Modal ────────────────────────────────────────
+    function showHandshake(code) {
+      pendingCode = code;
+      timerLeft   = 60;
+      document.getElementById('handshake-input').value = '';
+      document.getElementById('handshake-input').className = 'modal-input';
+      document.getElementById('modal-error').style.display = 'none';
+      document.getElementById('handshake-btn').disabled = false;
+      document.getElementById('handshake-btn').textContent = 'Confirm';
+      document.getElementById('timer-num').textContent = '60';
+      document.getElementById('timer-ring').style.strokeDashoffset = '0';
+      document.getElementById('timer-ring').style.stroke = '#22c55e';
+      document.getElementById('handshake-overlay').classList.add('show');
+
+      handshakeTimer = setInterval(() => {
+        timerLeft--;
+        document.getElementById('timer-num').textContent = timerLeft;
+
+        const offset = CIRCUMFERENCE * (1 - timerLeft / 60);
+        document.getElementById('timer-ring').style.strokeDashoffset = offset;
+        document.getElementById('timer-ring').style.stroke =
+          timerLeft > 30 ? '#22c55e' : timerLeft > 10 ? '#eab308' : '#ef4444';
+
+        if (timerLeft <= 0) {
+          clearInterval(handshakeTimer);
+          handleHandshakeTimeout();
+        }
+      }, 1000);
+    }
+
+    function hideHandshake() {
+      clearInterval(handshakeTimer);
+      document.getElementById('handshake-overlay').classList.remove('show');
+    }
+
+    function submitHandshake() {
+      const input = document.getElementById('handshake-input').value.trim();
+      if (!input) return;
+
+      if (input.toUpperCase() === pendingCode.toUpperCase()) {
+        clearInterval(handshakeTimer);
+        document.getElementById('handshake-input').className = 'modal-input success';
+        document.getElementById('handshake-btn').disabled = true;
+        document.getElementById('handshake-btn').textContent = '✓ Verified!';
+
+        channel.send({
+          type: 'broadcast', event: 'handshake_response',
+          payload: {
+            student_id: currentUser.id,
+            name:       currentProfile.full_name,
+            status:     'verified',
+            timestamp:  new Date().toISOString(),
+          }
+        });
+
+        addLog('handshake', 'Handshake verified ✓ — response sent to teacher');
+        setTimeout(hideHandshake, 800);
+      } else {
+        document.getElementById('handshake-input').className = 'modal-input wrong shake';
+        document.getElementById('modal-error').style.display = 'block';
+        document.getElementById('handshake-input').value = '';
+        setTimeout(() => {
+          document.getElementById('handshake-input').className = 'modal-input';
+        }, 400);
+      }
+    }
+
+    function handleHandshakeTimeout() {
+      channel.send({
+        type: 'broadcast', event: 'handshake_response',
+        payload: {
+          student_id: currentUser.id,
+          name:       currentProfile.full_name,
+          status:     'timeout',
+          timestamp:  new Date().toISOString(),
+        }
+      });
+      addLog('warn', 'Handshake timed out — teacher notified');
+      hideHandshake();
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    async function init() {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session) { window.location.href = 'login.html'; return; }
+
+      currentUser = session.user;
+
+      const { data: profile } = await client
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', currentUser.id)
+        .single();
+
+      currentProfile = profile;
+
+      document.getElementById('student-name').textContent =
+        profile?.full_name ?? currentUser.email;
+      document.getElementById('join-time').textContent =
+        joinTime.toLocaleTimeString();
+      document.getElementById('user-id-display').textContent =
+        currentUser.id.slice(0, 8) + '...';
+
+      addLog('info', `Signed in as ${profile?.full_name ?? currentUser.email}`);
+
+      // ── Set up channel ────────────────────────────────────
+      channel = client.channel('classroom-monitor', {
+        config: { presence: { key: currentUser.id } }
+      });
+
+      // Presence events
+      channel.on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        addLog('presence', `Presence synced — ${Object.keys(state).length} student(s) online`);
+      });
+
+      channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        if (key === currentUser.id) return;
+        addLog('presence', `${newPresences[0]?.name ?? key} joined`);
+      });
+
+      channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        if (key === currentUser.id) return;
+        addLog('presence', `${leftPresences[0]?.name ?? key} left`);
+      });
+
+      // Listen for teacher's handshake trigger
+      channel.on('broadcast', { event: 'trigger_presence' }, ({ payload }) => {
+        addLog('handshake', 'Presence check triggered by teacher');
+        showHandshake(payload.code);
+      });
+
+      // Subscribe
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          setStatus('connected');
+          addLog('info', 'Channel subscribed');
+
+          await channel.track({
+            student_id: currentUser.id,
+            name:       currentProfile.full_name,
+            joined_at:  new Date().toISOString(),
+            status:     'online',
+          });
+
+          addLog('presence', `Presence tracked — joined at ${joinTime.toLocaleTimeString()}`);
+          startHeartbeat();
+          startUptime();
+
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setStatus('disconnected');
+          addLog('error', `Channel error: ${status}`);
+        }
+      });
+
+      // Untrack on page leave
+      window.addEventListener('beforeunload', async () => {
+        clearInterval(heartbeatTimer);
+        clearInterval(uptimeTimer);
+        await channel.untrack();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
