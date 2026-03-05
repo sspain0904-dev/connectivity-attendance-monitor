@@ -258,10 +258,14 @@
           <div style="font-size:.7rem;color:var(--muted);margin-bottom:1rem">
             Session: <span id="summary-session-meta" style="color:var(--blue);font-weight:600">—</span>
           </div>
-          <div class="summary-header">
+          <div class="summary-header" style="grid-template-columns:repeat(4,1fr)">
             <div class="summary-stat">
               <div class="summary-stat-val" id="sum-present" style="color:var(--green)">0</div>
               <div class="summary-stat-lbl">Present</div>
+            </div>
+            <div class="summary-stat">
+              <div class="summary-stat-val" id="sum-late" style="color:#fb923c">0</div>
+              <div class="summary-stat-lbl">Late</div>
             </div>
             <div class="summary-stat">
               <div class="summary-stat-val" id="sum-partial" style="color:var(--yellow)">0</div>
@@ -279,6 +283,7 @@
                 <th>Avg Ping</th>
                 <th>Joined</th>
                 <th>Left</th>
+                <th>Delay</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -450,6 +455,7 @@
     document.getElementById('summary-empty').style.display   = 'none';
     document.getElementById('summary-content').style.display = 'block';
     document.getElementById('sum-present').textContent = records.filter(r=>r.status==='PRESENT').length;
+    document.getElementById('sum-late').textContent    = records.filter(r=>r.status==='LATE').length;
     document.getElementById('sum-partial').textContent = records.filter(r=>r.status==='PARTIAL').length;
     document.getElementById('sum-absent').textContent  = records.filter(r=>r.status==='ABSENT').length;
 
@@ -458,9 +464,9 @@
     const sessionMeta = document.getElementById('summary-session-meta');
     if (sessionMeta) sessionMeta.textContent = className;
 
-    const sColor = {PRESENT:'var(--green)',PARTIAL:'var(--yellow)',ABSENT:'var(--red)'};
+    const sColor = {PRESENT:'var(--green)',LATE:'#fb923c',PARTIAL:'var(--yellow)',ABSENT:'var(--red)'};
     document.getElementById('summary-tbody').innerHTML = records
-      .sort((a,b)=>({PRESENT:0,PARTIAL:1,ABSENT:2}[a.status]-{PRESENT:0,PARTIAL:1,ABSENT:2}[b.status]))
+      .sort((a,b)=>({PRESENT:0,LATE:1,PARTIAL:2,ABSENT:3}[a.status]-{PRESENT:0,LATE:1,PARTIAL:2,ABSENT:3}[b.status]))
       .map(r => {
         const s = r.session_summary;
         const lc = latClass(s.avg_latency);
@@ -469,6 +475,7 @@
           <td style="color:${latColor(lc)}">${s.avg_latency !== null ? s.avg_latency+'ms' : 'N/A'}</td>
           <td style="color:var(--muted)">${s.join_time ?? '—'}</td>
           <td style="color:var(--muted)">${s.leave_time ?? '—'}</td>
+          <td style="color:${s.join_delay_min > 15 ? '#fb923c' : 'var(--green)'}">${s.join_delay_min > 0 ? '+' + s.join_delay_min + 'min' : 'On time'}</td>
           <td style="color:${sColor[s.status]};font-weight:700">${s.status}</td>
         </tr>`;
       }).join('');
@@ -576,19 +583,29 @@
 
       await client.from('sessions').update({is_active:false}).eq('id',sessionId);
 
-      // Broadcast session ended to all students
-      if (channel) {
-        await channel.send({ type:'broadcast', event:'session_ended', payload:{} });
-      }
-
       const records = Object.entries(students).map(([studentId,d]) => {
         // Use actual leave time if they left, otherwise session end time
-        const leaveT   = d.leaveTime ?? sessionEnd;
-        const totalMs  = leaveT - d.joinTime;
-        const totalMin = Math.round(totalMs/60000*10)/10;
-        const avg      = avgLat(d.latencies);
-        const meetsMin = totalMin >= sessionLenMin * 0.5;
-        const status   = meetsMin ? 'PRESENT' : 'ABSENT';
+        const leaveT      = d.leaveTime ?? sessionEnd;
+        const totalMs     = leaveT - d.joinTime;
+        const totalMin    = Math.round(totalMs/60000*10)/10;
+        const avg         = avgLat(d.latencies);
+
+        // How many minutes after session start did the student join?
+        const joinDelayMin = (d.joinTime - sessionStart) / 60000;
+        const GRACE_PERIOD = 15; // minutes — joining within this = PRESENT
+        const leftEarlyMs  = sessionEnd - leaveT;
+        const leftEarlyMin = leftEarlyMs / 60000;
+
+        let status;
+        if (joinDelayMin <= GRACE_PERIOD && leftEarlyMin <= 2) {
+          status = 'PRESENT';   // joined on time, stayed till end
+        } else if (joinDelayMin > GRACE_PERIOD && leftEarlyMin <= 2) {
+          status = 'LATE';      // joined late but stayed till end
+        } else if (joinDelayMin <= GRACE_PERIOD && leftEarlyMin > 2) {
+          status = 'PARTIAL';   // joined on time but left early
+        } else {
+          status = 'ABSENT';    // joined very late AND left early
+        }
 
         const session_summary = {
           total_mins:   totalMin,
@@ -598,6 +615,7 @@
           presence_pct: Math.round((totalMin/sessionLenMin)*100),
           join_time:    fmtTime(d.joinTime),
           leave_time:   fmtTime(d.leaveTime ?? sessionEnd) + (d.leaveTime ? '' : ' (session ended)'),
+          join_delay_min: Math.round(joinDelayMin * 10) / 10,
         };
         return {studentId, name:d.name, session_summary, status};
       });
@@ -607,6 +625,11 @@
           records.map(r=>({session_id:sessionId, student_id:r.studentId, session_summary:r.session_summary}))
         );
         if (error) throw new Error('DB insert failed: ' + error.message);
+      }
+
+      // Only broadcast session ended AFTER successful DB save
+      if (channel) {
+        await channel.send({ type:'broadcast', event:'session_ended', payload:{} });
       }
 
       renderSummary(records);
