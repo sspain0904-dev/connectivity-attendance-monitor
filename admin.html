@@ -443,9 +443,9 @@
     const sessionMeta = document.getElementById('summary-session-meta');
     if (sessionMeta) sessionMeta.textContent = className;
 
-    const sColor = {PRESENT:'var(--green)',LATE:'#fb923c',PARTIAL:'var(--yellow)',ABSENT:'var(--red)'};
+    const sColor = {PRESENT:'var(--green)',LATE:'#fb923c',ABSENT:'var(--red)'};
     document.getElementById('summary-tbody').innerHTML = records
-      .sort((a,b)=>({PRESENT:0,LATE:1,PARTIAL:2,ABSENT:3}[a.status]-{PRESENT:0,LATE:1,PARTIAL:2,ABSENT:3}[b.status]))
+      .sort((a,b)=>({PRESENT:0,LATE:1,ABSENT:2}[a.status]-{PRESENT:0,LATE:1,ABSENT:2}[b.status]))
       .map(r => {
         const s = r.session_summary;
         const lc = latClass(s.avg_latency);
@@ -570,20 +570,18 @@
         const avg         = avgLat(d.latencies);
 
         // How many minutes after session start did the student join?
-        const joinDelayMin = (d.joinTime - sessionStart) / 60000;
-        const GRACE_PERIOD = 15; // minutes — joining within this = PRESENT
-        const leftEarlyMs  = sessionEnd - leaveT;
-        const leftEarlyMin = leftEarlyMs / 60000;
+        const joinDelayMin  = (d.joinTime - sessionStart) / 60000;
+        const presencePct   = sessionLenMin > 0 ? (totalMin / sessionLenMin) * 100 : 0;
+        const leftEarlyMin  = (sessionEnd - leaveT) / 60000;
 
+        // PRESENT = attended 75%+ of session and joined on time
+        // LATE    = attended 75%+ but joined after 20% of session elapsed
+        // ABSENT  = attended less than 75% of session
         let status;
-        if (joinDelayMin <= GRACE_PERIOD && leftEarlyMin <= 2) {
-          status = 'PRESENT';   // joined on time, stayed till end
-        } else if (joinDelayMin > GRACE_PERIOD && leftEarlyMin <= 2) {
-          status = 'LATE';      // joined late but stayed till end
-        } else if (joinDelayMin <= GRACE_PERIOD && leftEarlyMin > 2) {
-          status = 'PARTIAL';   // joined on time but left early
+        if (presencePct >= 75) {
+          status = joinDelayMin / sessionLenMin > 0.2 ? 'LATE' : 'PRESENT';
         } else {
-          status = 'ABSENT';    // joined very late AND left early
+          status = 'ABSENT';
         }
 
         const session_summary = {
