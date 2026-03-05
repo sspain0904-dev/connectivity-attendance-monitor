@@ -447,6 +447,10 @@
     addLog('info', `Signed in as ${profile?.full_name ?? currentUser.email}`);
 
     // 6. Set up Realtime channel
+    await setupChannel();
+  }
+
+  async function setupChannel() {
     channel = client.channel('classroom-monitor', {
       config: { presence: { key: currentUser.id } }
     });
@@ -481,12 +485,16 @@
         });
 
         addLog('presence', `Presence tracked — ${joinTime.toLocaleTimeString()}`);
-        startHeartbeat();
-        startUptime();
+        if (!heartbeatTimer) startHeartbeat();
+        if (!uptimeTimer) startUptime();
 
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        setStatus('disconnected');
-        addLog('error', `Channel error: ${status}`);
+        setStatus('connecting');
+        addLog('warn', `Channel ${status} — reconnecting in 3s...`);
+        setTimeout(async () => {
+          if (channel) { try { client.removeChannel(channel); } catch(e){} channel = null; }
+          await setupChannel();
+        }, 3000);
       }
     });
 

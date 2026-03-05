@@ -579,12 +579,8 @@
         const totalMs  = leaveT - d.joinTime;
         const totalMin = Math.round(totalMs/60000*10)/10;
         const avg      = avgLat(d.latencies);
-        // PRESENT = joined and stayed until session ended (or left less than 2 min before end)
-// PARTIAL = joined but left early
-// ABSENT  = never joined at all
-const meetsMin = totalMin >= sessionLenMin * 0.5 || totalMin >= 1;
-const leftEarly = d.leaveTime && (sessionEnd - d.leaveTime) > 120000;
-const status = !meetsMin ? 'ABSENT' : leftEarly ? 'PARTIAL' : 'PRESENT';
+        const meetsMin = totalMin >= sessionLenMin * 0.5;
+        const status   = meetsMin ? 'PRESENT' : 'ABSENT';
 
         const session_summary = {
           total_mins:   totalMin,
@@ -708,13 +704,20 @@ const status = !meetsMin ? 'ABSENT' : leftEarly ? 'PARTIAL' : 'PRESENT';
       if (!session) { window.location.href='login.html'; return; }
       currentUser = session.user;
 
-      const {data:profile, error} = await client
-        .from('profiles').select('full_name,role').eq('id',currentUser.id).single();
+      // Retry up to 3 times for slow connections
+      let profile = null;
+      for (let i = 0; i < 3; i++) {
+        const {data} = await client
+          .from('profiles').select('full_name,role').eq('id',currentUser.id).single();
+        if (data) { profile = data; break; }
+        await new Promise(r => setTimeout(r, 800));
+      }
 
-      if (error || !profile) { window.location.href='login.html'; return; }
+      if (!profile) { document.body.style.visibility='visible'; return; }
 
-      // Only redirect if CONFIRMED not a teacher
-      if (profile.role !== 'teacher') { window.location.href='student.html'; return; }
+      // Only redirect if CONFIRMED student
+      if (profile.role === 'student') { window.location.href='student.html'; return; }
+      if (profile.role !== 'teacher') { document.body.style.visibility='visible'; return; }
 
       currentProfile = profile;
       document.getElementById('teacher-name').textContent = profile.full_name;
