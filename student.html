@@ -457,64 +457,45 @@
   }
 
   async function setupChannel() {
-    const channelName = 'classroom-' + (activeSessionId ?? 'monitor');
-    channel = client.channel(channelName, {
-      config: { presence: { key: currentUser.id } }
-    });
+    const channelName = 'classroom-' + activeSessionId;
+    channel = client.channel(channelName, { config: { presence: { key: currentUser.id } } });
 
     channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
       if (key === currentUser.id) return;
-      addLog('presence', `${newPresences[0]?.name ?? key} joined`);
+      addLog('presence', (newPresences[0]?.name ?? key) + ' joined');
     });
 
-    channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-      if (key === currentUser.id) return;
-      addLog('presence', `${leftPresences[0]?.name ?? key} left`);
-    });
-
-    // 7. Listen for session end broadcast from teacher
     channel.on('broadcast', { event: 'session_ended' }, () => {
       localStorage.removeItem('active_session_id');
       showSessionEnded();
     });
 
-    // 8. Subscribe and track presence
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         setStatus('connected');
         addLog('info', 'Connected to session channel');
-
-        // Track presence so teacher can see student
         await channel.track({
           student_id: currentUser.id,
-          name:       currentProfile.full_name,
-          joined_at:  new Date().toISOString(),
-          status:     'online',
+          name: currentProfile.full_name,
+          joined_at: new Date().toISOString(),
+          status: 'online',
         });
-
-        addLog('presence', `Presence tracked — ${new Date().toLocaleTimeString()}`);
-
-        // Only start timers on first connection
+        addLog('presence', 'Presence tracked - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();
         if (!uptimeTimer) startUptime();
-
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         setStatus('connecting');
-        addLog('warn', `Channel ${status} — reconnecting in 5s...`);
-
-        // Stop old heartbeat before reconnecting to avoid duplicates
+        addLog('warn', 'Channel issue - retrying in 3s...');
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-
         setTimeout(async () => {
-          try {
-            if (channel) { client.removeChannel(channel); channel = null; }
-          } catch(e) {}
-          await setupChannel();
-        }, 5000);
+          try { if (channel) { client.removeChannel(channel); channel = null; } } catch(e) {}
+          setupChannel();
+        }, 3000);
       }
     });
+  }
 
-    // 9. Clean up on page close/refresh
+      // 9. Clean up on page close/refresh
     window.addEventListener('beforeunload', async () => {
       clearInterval(heartbeatTimer);
       clearInterval(uptimeTimer);
@@ -530,7 +511,7 @@
         showSessionEnded();
       }
     }, 15000);
-  }
+  
 
   init();
 </script>
