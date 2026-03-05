@@ -322,7 +322,7 @@
 
 <script>
   const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
-  const SUPABASE_ANON_KEY = 'your-publishable-key-here';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
   const { createClient }  = supabase;
   const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -680,15 +680,33 @@
     if (e.key === 'Escape') closeAddClass();
   });
 
+  // Hide page until role is confirmed — prevents flash redirect
+  document.body.style.visibility = 'hidden';
+
   async function init() {
-    const {data:{session}} = await client.auth.getSession();
-    if (!session) { window.location.href='login.html'; return; }
-    currentUser = session.user;
-    const {data:profile} = await client.from('profiles').select('full_name,role').eq('id',currentUser.id).single();
-    if (profile?.role !== 'teacher') { window.location.href='student.html'; return; }
-    currentProfile = profile;
-    document.getElementById('teacher-name').textContent = profile.full_name;
-    await loadClasses(currentUser.id);
+    try {
+      const {data:{session}} = await client.auth.getSession();
+      if (!session) { window.location.href='login.html'; return; }
+      currentUser = session.user;
+
+      const {data:profile, error} = await client
+        .from('profiles').select('full_name,role').eq('id',currentUser.id).single();
+
+      if (error || !profile) { window.location.href='login.html'; return; }
+
+      // Only redirect if CONFIRMED not a teacher
+      if (profile.role !== 'teacher') { window.location.href='student.html'; return; }
+
+      currentProfile = profile;
+      document.getElementById('teacher-name').textContent = profile.full_name;
+      await loadClasses(currentUser.id);
+
+      // All good — show the page
+      document.body.style.visibility = 'visible';
+    } catch(err) {
+      console.error('Init error:', err);
+      document.body.style.visibility = 'visible';
+    }
   }
 
   init();
