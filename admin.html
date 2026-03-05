@@ -454,7 +454,7 @@
           <td style="color:${latColor(lc)}">${s.avg_latency !== null ? s.avg_latency+'ms' : 'N/A'}</td>
           <td style="color:var(--muted)">${s.join_time ?? '—'}</td>
           <td style="color:var(--muted)">${s.leave_time ?? '—'}</td>
-          <td style="color:${s.join_delay_min > 15 ? '#fb923c' : 'var(--green)'}">${s.join_delay_min > 0 ? '+' + s.join_delay_min + 'min' : 'On time'}</td>
+          <td style="color:${s.join_delay_sec > 60 ? '#fb923c' : 'var(--green)'}">${s.join_delay_sec > 0 ? '+' + s.join_delay_sec + 's' : 'On time'}</td>
           <td style="color:${sColor[s.status]};font-weight:700">${s.status}</td>
         </tr>`;
       }).join('');
@@ -594,7 +594,7 @@
           presence_pct: Math.round((totalMin/sessionLenMin)*100),
           join_time:    fmtTime(d.joinTime),
           leave_time:   fmtTime(d.leaveTime ?? sessionEnd) + (d.leaveTime ? '' : ' (session ended)'),
-          join_delay_min: Math.round(joinDelayMin * 10) / 10,
+          join_delay_sec: Math.round(joinDelayMin * 60),
         };
         return {studentId, name:d.name, session_summary, status};
       });
