@@ -579,8 +579,12 @@
         const totalMs  = leaveT - d.joinTime;
         const totalMin = Math.round(totalMs/60000*10)/10;
         const avg      = avgLat(d.latencies);
-        const meetsMin = totalMin >= sessionLenMin * 0.5;
-        const status   = meetsMin ? 'PRESENT' : 'ABSENT';
+        // PRESENT = joined and stayed until session ended (or left less than 2 min before end)
+// PARTIAL = joined but left early
+// ABSENT  = never joined at all
+const meetsMin = totalMin >= sessionLenMin * 0.5 || totalMin >= 1;
+const leftEarly = d.leaveTime && (sessionEnd - d.leaveTime) > 120000;
+const status = !meetsMin ? 'ABSENT' : leftEarly ? 'PARTIAL' : 'PRESENT';
 
         const session_summary = {
           total_mins:   totalMin,
