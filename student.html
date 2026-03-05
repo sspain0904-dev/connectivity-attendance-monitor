@@ -451,7 +451,8 @@
   }
 
   async function setupChannel() {
-    channel = client.channel('classroom-monitor', {
+    const channelName = 'classroom-' + (activeSessionId ?? 'monitor');
+    channel = client.channel(channelName, {
       config: { presence: { key: currentUser.id } }
     });
 
@@ -477,6 +478,7 @@
         setStatus('connected');
         addLog('info', 'Connected to session channel');
 
+        // Track presence so teacher can see student
         await channel.track({
           student_id: currentUser.id,
           name:       currentProfile.full_name,
@@ -484,17 +486,25 @@
           status:     'online',
         });
 
-        addLog('presence', `Presence tracked — ${joinTime.toLocaleTimeString()}`);
+        addLog('presence', `Presence tracked — ${new Date().toLocaleTimeString()}`);
+
+        // Only start timers on first connection
         if (!heartbeatTimer) startHeartbeat();
         if (!uptimeTimer) startUptime();
 
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         setStatus('connecting');
-        addLog('warn', `Channel ${status} — reconnecting in 3s...`);
+        addLog('warn', `Channel ${status} — reconnecting in 5s...`);
+
+        // Stop old heartbeat before reconnecting to avoid duplicates
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+
         setTimeout(async () => {
-          if (channel) { try { client.removeChannel(channel); } catch(e){} channel = null; }
+          try {
+            if (channel) { client.removeChannel(channel); channel = null; }
+          } catch(e) {}
           await setupChannel();
-        }, 3000);
+        }, 5000);
       }
     });
 
