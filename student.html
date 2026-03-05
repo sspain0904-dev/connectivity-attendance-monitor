@@ -425,15 +425,20 @@
     }
 
     // 4. Verify session is still active in DB
-    const { data: sessionData, error: sessionError } = await client
-      .from('sessions')
-      .select('id, passcode, classes(course_code)')
-      .eq('id', activeSessionId)
-      .eq('is_active', true)
-      .single();
+    let sessionData = null;
+    for (let i = 0; i < 3; i++) {
+      const { data, error } = await client
+        .from('sessions')
+        .select('id, passcode, classes(course_code)')
+        .eq('id', activeSessionId)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (data) { sessionData = data; break; }
+      if (i < 2) await new Promise(r => setTimeout(r, 1000));
+    }
 
-    if (sessionError || !sessionData) {
-      // Session no longer active
+    if (!sessionData) {
+      // Session invalid or expired — clear and redirect
       localStorage.removeItem('active_session_id');
       window.location.href = 'join.html';
       return;
@@ -441,7 +446,7 @@
 
     // 5. Show session name in topbar
     const courseName = sessionData.classes?.course_code ?? 'Session';
-    document.getElementById('session-id-display').textContent = activeSessionId.slice(0,8) + '...';
+    // session id available as activeSessionId
     document.getElementById('session-name-display').textContent = courseName;
 
     addLog('info', `Joined session: ${courseName}`);
