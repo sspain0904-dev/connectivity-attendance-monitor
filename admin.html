@@ -255,6 +255,9 @@
       <div class="tab-pane" id="tab-summary">
         <div class="summary-empty" id="summary-empty">End a session to see the summary</div>
         <div id="summary-content" style="display:none;padding:1.25rem">
+          <div style="font-size:.7rem;color:var(--muted);margin-bottom:1rem">
+            Session: <span id="summary-session-meta" style="color:var(--blue);font-weight:600">—</span>
+          </div>
           <div class="summary-header">
             <div class="summary-stat">
               <div class="summary-stat-val" id="sum-present" style="color:var(--green)">0</div>
@@ -450,6 +453,11 @@
     document.getElementById('sum-partial').textContent = records.filter(r=>r.status==='PARTIAL').length;
     document.getElementById('sum-absent').textContent  = records.filter(r=>r.status==='ABSENT').length;
 
+    // Show session name
+    const className = document.getElementById('class-select').options[document.getElementById('class-select').selectedIndex]?.text ?? 'Session';
+    const sessionMeta = document.getElementById('summary-session-meta');
+    if (sessionMeta) sessionMeta.textContent = className;
+
     const sColor = {PRESENT:'var(--green)',PARTIAL:'var(--yellow)',ABSENT:'var(--red)'};
     document.getElementById('summary-tbody').innerHTML = records
       .sort((a,b)=>({PRESENT:0,PARTIAL:1,ABSENT:2}[a.status]-{PRESENT:0,PARTIAL:1,ABSENT:2}[b.status]))
@@ -560,8 +568,15 @@
 
       await client.from('sessions').update({is_active:false}).eq('id',sessionId);
 
+      // Broadcast session ended to all students
+      if (channel) {
+        await channel.send({ type:'broadcast', event:'session_ended', payload:{} });
+      }
+
       const records = Object.entries(students).map(([studentId,d]) => {
-        const totalMs  = (d.leaveTime ?? sessionEnd) - d.joinTime;
+        // Use actual leave time if they left, otherwise session end time
+        const leaveT   = d.leaveTime ?? sessionEnd;
+        const totalMs  = leaveT - d.joinTime;
         const totalMin = Math.round(totalMs/60000*10)/10;
         const avg      = avgLat(d.latencies);
         const meetsMin = totalMin >= sessionLenMin * 0.5;
