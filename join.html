@@ -249,7 +249,7 @@
 
     // ── Supabase ───────────────────────────────────────────────
     const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
     const { createClient }  = supabase;
     const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -270,14 +270,16 @@
       btn.innerHTML = '<div class="spinner"></div> Joining...';
 
       try {
+        // Convert passcode to uppercase for case-insensitive match
         const { data: session, error } = await client
           .from('sessions')
-          .select('id, is_active')
-          .eq('passcode', passcode)
-          .single();
+          .select('id, is_active, passcode')
+          .eq('passcode', passcode.toUpperCase())
+          .eq('is_active', true)
+          .maybeSingle();
 
-        if (error || !session) throw new Error('Invalid passcode. Try again.');
-        if (!session.is_active) throw new Error('This session is not active yet.');
+        if (error) throw new Error('Database error. Try again.');
+        if (!session) throw new Error('Invalid or expired passcode. Try again.');
 
         // Store session id and redirect to student dashboard
         localStorage.setItem('active_session_id', session.id);

@@ -589,7 +589,7 @@
           session_length_mins: Math.round(sessionLenMin*10)/10,
           presence_pct: Math.round((totalMin/sessionLenMin)*100),
           join_time:    fmtTime(d.joinTime),
-          leave_time:   fmtTime(d.leaveTime),
+          leave_time:   fmtTime(d.leaveTime ?? sessionEnd) + (d.leaveTime ? '' : ' (session ended)'),
         };
         return {studentId, name:d.name, session_summary, status};
       });
@@ -625,7 +625,7 @@
     if (data?.length) sel.innerHTML = data.map(c=>`<option value="${c.id}">${c.course_code}</option>`).join('');
   }
 
-  async function handleLogout() { await client.auth.signOut(); window.location.href='login.html'; }
+  async function handleLogout() { sessionStorage.removeItem('cam_role'); await client.auth.signOut(); window.location.href='login.html'; }
 
   // ── Add Class Modal ───────────────────────────────────────
   function openAddClass() {
@@ -704,7 +704,15 @@
       if (!session) { window.location.href='login.html'; return; }
       currentUser = session.user;
 
-      // Retry up to 3 times for slow connections
+      // Use cached role to prevent wrong redirect on refresh
+      const cachedRole = sessionStorage.getItem('cam_role');
+      if (cachedRole === 'teacher') {
+        document.body.style.visibility = 'visible';
+      } else if (cachedRole === 'student') {
+        window.location.href = 'student.html'; return;
+      }
+
+      // Fetch profile with retry
       let profile = null;
       for (let i = 0; i < 3; i++) {
         const {data} = await client
@@ -715,6 +723,9 @@
 
       if (!profile) { document.body.style.visibility='visible'; return; }
 
+      // Cache confirmed role
+      sessionStorage.setItem('cam_role', profile.role);
+
       // Only redirect if CONFIRMED student
       if (profile.role === 'student') { window.location.href='student.html'; return; }
       if (profile.role !== 'teacher') { document.body.style.visibility='visible'; return; }
@@ -723,7 +734,6 @@
       document.getElementById('teacher-name').textContent = profile.full_name;
       await loadClasses(currentUser.id);
 
-      // All good — show the page
       document.body.style.visibility = 'visible';
     } catch(err) {
       console.error('Init error:', err);
