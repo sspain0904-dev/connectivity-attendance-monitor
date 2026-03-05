@@ -483,6 +483,13 @@
     setStatus('Starting...','var(--yellow)');
     try {
       const passcode = Math.random().toString(36).substring(2,8).toUpperCase();
+
+      // Deactivate any old sessions for this class first
+      await client.from('sessions')
+        .update({is_active: false})
+        .eq('class_id', classId)
+        .eq('is_active', true);
+
       const { data:sess, error } = await client.from('sessions')
         .insert({class_id:classId,is_active:true,passcode}).select().single();
       if (error) throw new Error(error.message);

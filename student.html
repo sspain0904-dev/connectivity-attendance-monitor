@@ -441,6 +441,7 @@
 
     // 5. Show session name in topbar
     const courseName = sessionData.classes?.course_code ?? 'Session';
+    document.getElementById('session-id-display').textContent = activeSessionId.slice(0,8) + '...';
     document.getElementById('session-name-display').textContent = courseName;
 
     addLog('info', `Joined session: ${courseName}`);
