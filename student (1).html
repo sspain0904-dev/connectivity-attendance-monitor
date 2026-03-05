@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard | Connectivity and Attendance Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #020408;
+      --surface: #0a0f1a;
+      --border:  #111827;
+      --border2: #1e2d40;
+      --text:    #e2e8f0;
+      --muted:   #4a5568;
+      --green:   #00ff88;
+      --yellow:  #ffcc00;
+      --red:     #ff3b5c;
+      --blue:    #3b82f6;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'JetBrains Mono',monospace; background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.75rem 1.5rem;
+      background:rgba(10,15,26,.95); border-bottom:1px solid var(--border);
+      backdrop-filter:blur(12px); position:sticky; top:0; z-index:20;
+    }
+    .topbar-left { display:flex; align-items:center; gap:.75rem; }
+    .t-logo { width:32px; height:32px; background:var(--blue); border-radius:8px; display:flex; align-items:center; justify-content:center; }
+    .t-logo svg { width:16px; height:16px; color:#fff; }
+    .t-name { font-family:'Syne',sans-serif; font-size:.875rem; font-weight:700; color:#fff; }
+    .t-sub  { font-size:.65rem; color:var(--muted); margin-top:1px; }
+    .topbar-right { display:flex; align-items:center; gap:.875rem; }
+
+    .status-wrap { display:flex; align-items:center; gap:.5rem; }
+    .status-dot  { width:9px; height:9px; border-radius:50%; transition:background .3s; }
+    .status-dot.connected    { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+    .status-dot.connecting   { background:var(--yellow); }
+    .status-dot.disconnected { background:var(--red); }
+    .status-label { font-size:.72rem; color:var(--muted); }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+    .session-info-pill {
+      display:flex; align-items:center; gap:.4rem;
+      padding:.3rem .75rem; border-radius:99px;
+      border:1px solid rgba(59,130,246,.3);
+      background:rgba(59,130,246,.05);
+      font-size:.65rem; color:#60a5fa;
+    }
+
+    .btn-logout {
+      padding:.4rem .875rem; border-radius:8px;
+      border:1px solid var(--border2); background:transparent;
+      color:var(--muted); font-size:.72rem; font-weight:600;
+      cursor:pointer; font-family:'JetBrains Mono',monospace;
+      transition:all .15s; display:flex; align-items:center; gap:.35rem;
+    }
+    .btn-logout:hover { border-color:#4a5568; color:var(--red); }
+
+    /* ── STATS ── */
+    .stats-grid {
+      display:grid; grid-template-columns:repeat(4,1fr);
+      gap:1rem; padding:1.5rem 1.5rem .75rem;
+    }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem; }
+    .stat-header { display:flex; align-items:center; gap:.5rem; color:var(--muted); margin-bottom:.5rem; }
+    .stat-header svg { width:15px; height:15px; }
+    .stat-header span { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; }
+    .stat-value { font-size:1.75rem; font-weight:700; font-family:'Syne',sans-serif; transition:color .5s; }
+
+    /* ── LATENCY COLOR CODING ── */
+    .stat-value.lat-green  { color:var(--green); }
+    .stat-value.lat-yellow { color:var(--yellow); }
+    .stat-value.lat-red    { color:var(--red); }
+    .stat-value.lat-gray   { color:var(--muted); }
+
+    /* ── LEGEND ── */
+    .legend-bar {
+      margin:0 1.5rem .75rem;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:.75rem 1.25rem;
+      display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;
+    }
+    .legend-title { font-size:.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-right:.25rem; }
+    .legend-item  { display:flex; align-items:center; gap:.4rem; font-size:.68rem; }
+    .legend-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .ld-green  { background:var(--green);  box-shadow:0 0 5px var(--green); }
+    .ld-yellow { background:var(--yellow); box-shadow:0 0 5px var(--yellow); }
+    .ld-red    { background:var(--red);    box-shadow:0 0 5px var(--red); }
+    .ld-gray   { background:var(--muted); }
+
+    /* ── LOG PANEL ── */
+    .log-panel {
+      margin:0 1.5rem 1rem;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:12px; overflow:hidden;
+    }
+    .log-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:.75rem 1rem; border-bottom:1px solid var(--border);
+    }
+    .log-header span { font-size:.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; }
+    .log-body {
+      height:240px; overflow-y:auto; padding:.875rem;
+      display:flex; flex-direction:column; gap:.4rem;
+    }
+    .log-entry { display:flex; align-items:flex-start; gap:.75rem; font-size:.72rem; }
+    .log-time  { color:var(--muted); flex-shrink:0; width:68px; }
+    .log-dot   { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+    .log-dot.info      { background:var(--blue); }
+    .log-dot.heartbeat { background:var(--green); }
+    .log-dot.presence  { background:#a78bfa; }
+    .log-dot.warn      { background:#fb923c; }
+    .log-dot.error     { background:var(--red); }
+    .log-msg.info      { color:#93c5fd; }
+    .log-msg.heartbeat { color:#6ee7b7; }
+    .log-msg.presence  { color:#c4b5fd; }
+    .log-msg.warn      { color:#fdba74; }
+    .log-msg.error     { color:#fca5a5; }
+    .log-empty { color:var(--muted); font-size:.72rem; text-align:center; margin-top:2rem; }
+
+    /* ── SESSION FOOTER ── */
+    .session-footer {
+      margin:0 1.5rem 1.5rem;
+      background:rgba(10,15,26,.5); border:1px solid var(--border);
+      border-radius:10px; padding:.75rem 1.25rem;
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:.68rem; color:var(--muted);
+    }
+
+    /* ── SESSION ENDED OVERLAY ── */
+    #ended-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,.85); backdrop-filter:blur(8px);
+      z-index:50; align-items:center; justify-content:center;
+    }
+    #ended-overlay.show { display:flex; }
+    .ended-box {
+      background:var(--surface); border:1px solid var(--border2);
+      border-radius:20px; padding:2.5rem; text-align:center;
+      max-width:340px; width:100%;
+    }
+    .ended-icon {
+      width:56px; height:56px; border-radius:14px;
+      background:rgba(255,59,92,.1); border:1px solid rgba(255,59,92,.3);
+      display:flex; align-items:center; justify-content:center;
+      margin:0 auto 1.25rem;
+    }
+    .ended-icon svg { width:28px; height:28px; color:var(--red); }
+    .ended-title { font-family:'Syne',sans-serif; font-size:1.125rem; font-weight:700; color:#fff; margin-bottom:.5rem; }
+    .ended-sub   { font-size:.75rem; color:var(--muted); line-height:1.6; margin-bottom:1.5rem; }
+    .btn-home { width:100%; padding:.75rem; border-radius:10px; border:none; background:var(--blue); color:#fff; font-size:.8rem; font-weight:700; cursor:pointer; font-family:'JetBrains Mono',monospace; }
+    .btn-home:hover { background:#60a5fa; }
+
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="t-logo">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="t-name" id="student-name">Loading...</div>
+      <div class="t-sub">Student Monitor</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="session-info-pill" id="session-pill">
+      <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+      </svg>
+      <span id="session-name-display">Loading session...</span>
+    </div>
+    <div class="status-wrap">
+      <div class="status-dot connecting" id="status-dot"></div>
+      <span class="status-label" id="status-label">Connecting...</span>
+    </div>
+    <button class="btn-logout" onclick="handleLogout()">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Logout
+    </button>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-header">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <span>Latency</span>
+    </div>
+    <div class="stat-value lat-gray" id="stat-latency">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-header">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+      <span>Heartbeats</span>
+    </div>
+    <div class="stat-value" style="color:var(--blue)" id="stat-heartbeats">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-header">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span>Uptime</span>
+    </div>
+    <div class="stat-value" style="color:#a78bfa" id="stat-uptime">0s</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-header">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      <span>Status</span>
+    </div>
+    <div class="stat-value lat-yellow" id="stat-status">Init</div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend-bar">
+  <span class="legend-title">Latency Legend</span>
+  <div class="legend-item"><span class="legend-dot ld-green"></span><span style="color:var(--green)">Good</span><span style="color:var(--muted)"> — Less than 200ms</span></div>
+  <div class="legend-item"><span class="legend-dot ld-yellow"></span><span style="color:var(--yellow)">Slow</span><span style="color:var(--muted)"> — Higher than 200ms</span></div>
+  <div class="legend-item"><span class="legend-dot ld-red"></span><span style="color:var(--red)">Timeout</span><span style="color:var(--muted)"> — No response</span></div>
+  <div class="legend-item"><span class="legend-dot ld-gray"></span><span style="color:var(--muted)">Disconnected</span><span style="color:var(--muted)"> — 15s no heartbeat</span></div>
+</div>
+
+<!-- ACTIVITY LOG -->
+<div class="log-panel">
+  <div class="log-header">
+    <span>Activity Log</span>
+    <span id="log-count" style="color:var(--muted);font-size:.65rem">0 events</span>
+  </div>
+  <div class="log-body" id="log-body">
+    <div class="log-empty">Waiting for events...</div>
+  </div>
+</div>
+
+<!-- SESSION FOOTER -->
+<div class="session-footer">
+  <span>Session started: <span id="join-time">—</span></span>
+  <span id="user-id-display">—</span>
+</div>
+
+<!-- SESSION ENDED OVERLAY -->
+<div id="ended-overlay">
+  <div class="ended-box">
+    <div class="ended-icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div class="ended-title">Session Ended</div>
+    <div class="ended-sub">The teacher has ended this session. Your attendance has been recorded.</div>
+    <button class="btn-home" onclick="window.location.href='login.html'">Back to Login</button>
+  </div>
+</div>
+
+<script>
+  // ── Config ─────────────────────────────────────────────────
+  const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
+  const { createClient }  = supabase;
+  const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── State ──────────────────────────────────────────────────
+  let currentUser    = null;
+  let currentProfile = null;
+  let channel        = null;
+  let heartbeatTimer = null;
+  let uptimeTimer    = null;
+  let heartbeatCount = 0;
+  let uptimeSeconds  = 0;
+  let activeSessionId= null;
+  const joinTime     = new Date();
+
+  // ── Log ────────────────────────────────────────────────────
+  function addLog(type, message) {
+    const body  = document.getElementById('log-body');
+    const empty = body.querySelector('.log-empty');
+    if (empty) empty.remove();
+
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.innerHTML = `
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+      <span class="log-dot ${type}"></span>
+      <span class="log-msg ${type}">${message}</span>`;
+    body.insertBefore(el, body.firstChild);
+    while (body.children.length > 60) body.removeChild(body.lastChild);
+
+    document.getElementById('log-count').textContent = body.children.length + ' events';
+  }
+
+  // ── Status ─────────────────────────────────────────────────
+  function setStatus(status) {
+    const dot   = document.getElementById('status-dot');
+    const label = document.getElementById('status-label');
+    const stat  = document.getElementById('stat-status');
+    dot.className = 'status-dot ' + status;
+    const map = {
+      connected:    { label:'Connected',    text:'Live', cls:'lat-green'  },
+      connecting:   { label:'Connecting...', text:'Init', cls:'lat-yellow' },
+      disconnected: { label:'Disconnected',  text:'Off',  cls:'lat-red'   },
+    };
+    label.textContent = map[status]?.label ?? status;
+    stat.textContent  = map[status]?.text  ?? status;
+    stat.className    = 'stat-value ' + (map[status]?.cls ?? 'lat-gray');
+  }
+
+  // ── Latency display with color coding ──────────────────────
+  function updateLatencyDisplay(ms) {
+    const el = document.getElementById('stat-latency');
+    if (ms === null) {
+      el.textContent = 'Timeout';
+      el.className   = 'stat-value lat-red';
+      return;
+    }
+    el.textContent = ms + 'ms';
+    el.className   = 'stat-value ' + (ms < 200 ? 'lat-green' : 'lat-yellow');
+  }
+
+  // ── Measure latency ────────────────────────────────────────
+  async function measureLatency() {
+    const start = performance.now();
+    try {
+      await fetch(SUPABASE_URL + '/health', { method:'HEAD', cache:'no-store' });
+      return Math.round(performance.now() - start);
+    } catch { return null; }
+  }
+
+  // ── Uptime ─────────────────────────────────────────────────
+  function startUptime() {
+    uptimeTimer = setInterval(() => {
+      uptimeSeconds++;
+      const m = Math.floor(uptimeSeconds / 60), s = uptimeSeconds % 60;
+      document.getElementById('stat-uptime').textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }, 1000);
+  }
+
+  // ── Heartbeat ──────────────────────────────────────────────
+  function startHeartbeat() {
+    heartbeatTimer = setInterval(async () => {
+      const ms = await measureLatency();
+      updateLatencyDisplay(ms);
+
+      await channel.send({
+        type: 'broadcast', event: 'heartbeat',
+        payload: {
+          student_id: currentUser.id,
+          name:       currentProfile.full_name,
+          latency_ms: ms,
+          timestamp:  new Date().toISOString(),
+        }
+      });
+
+      heartbeatCount++;
+      document.getElementById('stat-heartbeats').textContent = heartbeatCount;
+      addLog(
+        ms === null ? 'error' : ms > 200 ? 'warn' : 'heartbeat',
+        `Heartbeat — ${ms === null ? 'timeout' : ms + 'ms'}`
+      );
+    }, 10000);
+  }
+
+  // ── Logout ─────────────────────────────────────────────────
+  async function handleLogout() {
+    clearInterval(heartbeatTimer);
+    clearInterval(uptimeTimer);
+    if (channel) {
+      await channel.untrack();
+      client.removeChannel(channel);
+    }
+    await client.auth.signOut();
+    localStorage.removeItem('active_session_id');
+    window.location.href = 'login.html';
+  }
+
+  // ── Session ended ───────────────────────────────────────────
+  function showSessionEnded() {
+    clearInterval(heartbeatTimer);
+    clearInterval(uptimeTimer);
+    setStatus('disconnected');
+    addLog('error', 'Session ended by teacher');
+    document.getElementById('ended-overlay').classList.add('show');
+  }
+
+  // ── Init ───────────────────────────────────────────────────
+  async function init() {
+    // 1. Check auth
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    currentUser = session.user;
+
+    // 2. Get profile
+    const { data: profile } = await client
+      .from('profiles').select('full_name, role').eq('id', currentUser.id).single();
+    currentProfile = profile;
+
+    document.getElementById('student-name').textContent  = profile?.full_name ?? currentUser.email;
+    document.getElementById('join-time').textContent     = joinTime.toLocaleTimeString();
+    document.getElementById('user-id-display').textContent = currentUser.id.slice(0,8) + '...';
+
+    // 3. Get session ID from localStorage (saved by join.html)
+    activeSessionId = localStorage.getItem('active_session_id');
+
+    if (!activeSessionId) {
+      // No session stored — send back to join
+      window.location.href = 'join.html';
+      return;
+    }
+
+    // 4. Verify session is still active in DB
+    const { data: sessionData, error: sessionError } = await client
+      .from('sessions')
+      .select('id, passcode, classes(course_code)')
+      .eq('id', activeSessionId)
+      .eq('is_active', true)
+      .single();
+
+    if (sessionError || !sessionData) {
+      // Session no longer active
+      localStorage.removeItem('active_session_id');
+      window.location.href = 'join.html';
+      return;
+    }
+
+    // 5. Show session name in topbar
+    const courseName = sessionData.classes?.course_code ?? 'Session';
+    document.getElementById('session-name-display').textContent = courseName;
+
+    addLog('info', `Joined session: ${courseName}`);
+    addLog('info', `Signed in as ${profile?.full_name ?? currentUser.email}`);
+
+    // 6. Set up Realtime channel
+    channel = client.channel('classroom-monitor', {
+      config: { presence: { key: currentUser.id } }
+    });
+
+    channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      if (key === currentUser.id) return;
+      addLog('presence', `${newPresences[0]?.name ?? key} joined`);
+    });
+
+    channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      if (key === currentUser.id) return;
+      addLog('presence', `${leftPresences[0]?.name ?? key} left`);
+    });
+
+    // 7. Listen for session end broadcast from teacher
+    channel.on('broadcast', { event: 'session_ended' }, () => {
+      localStorage.removeItem('active_session_id');
+      showSessionEnded();
+    });
+
+    // 8. Subscribe and track presence
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        setStatus('connected');
+        addLog('info', 'Connected to session channel');
+
+        await channel.track({
+          student_id: currentUser.id,
+          name:       currentProfile.full_name,
+          joined_at:  new Date().toISOString(),
+          status:     'online',
+        });
+
+        addLog('presence', `Presence tracked — ${joinTime.toLocaleTimeString()}`);
+        startHeartbeat();
+        startUptime();
+
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        setStatus('disconnected');
+        addLog('error', `Channel error: ${status}`);
+      }
+    });
+
+    // 9. Clean up on page close/refresh
+    window.addEventListener('beforeunload', async () => {
+      clearInterval(heartbeatTimer);
+      clearInterval(uptimeTimer);
+      if (channel) await channel.untrack();
+    });
+
+    // 10. Poll every 15s to check if session is still active
+    setInterval(async () => {
+      const { data } = await client
+        .from('sessions').select('is_active').eq('id', activeSessionId).single();
+      if (data && !data.is_active) {
+        localStorage.removeItem('active_session_id');
+        showSessionEnded();
+      }
+    }, 15000);
+  }
+
+  init();
+</script>
+</body>
+</html>
