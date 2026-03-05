@@ -258,24 +258,7 @@
           <div style="font-size:.7rem;color:var(--muted);margin-bottom:1rem">
             Session: <span id="summary-session-meta" style="color:var(--blue);font-weight:600">—</span>
           </div>
-          <div class="summary-header" style="grid-template-columns:repeat(4,1fr)">
-            <div class="summary-stat">
-              <div class="summary-stat-val" id="sum-present" style="color:var(--green)">0</div>
-              <div class="summary-stat-lbl">Present</div>
-            </div>
-            <div class="summary-stat">
-              <div class="summary-stat-val" id="sum-late" style="color:#fb923c">0</div>
-              <div class="summary-stat-lbl">Late</div>
-            </div>
-            <div class="summary-stat">
-              <div class="summary-stat-val" id="sum-partial" style="color:var(--yellow)">0</div>
-              <div class="summary-stat-lbl">Partial</div>
-            </div>
-            <div class="summary-stat">
-              <div class="summary-stat-val" id="sum-absent" style="color:var(--red)">0</div>
-              <div class="summary-stat-lbl">Absent</div>
-            </div>
-          </div>
+
           <table class="summary-table">
             <thead>
               <tr>
@@ -454,10 +437,6 @@
   function renderSummary(records) {
     document.getElementById('summary-empty').style.display   = 'none';
     document.getElementById('summary-content').style.display = 'block';
-    document.getElementById('sum-present').textContent = records.filter(r=>r.status==='PRESENT').length;
-    document.getElementById('sum-late').textContent    = records.filter(r=>r.status==='LATE').length;
-    document.getElementById('sum-partial').textContent = records.filter(r=>r.status==='PARTIAL').length;
-    document.getElementById('sum-absent').textContent  = records.filter(r=>r.status==='ABSENT').length;
 
     // Show session name
     const className = document.getElementById('class-select').options[document.getElementById('class-select').selectedIndex]?.text ?? 'Session';
