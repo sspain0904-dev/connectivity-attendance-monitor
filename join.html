@@ -251,13 +251,20 @@
     const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
     const { createClient }  = supabase;
-    // Per-tab storage so multiple students can log in on different tabs
+    // Tab-isolated auth so multiple students can use same browser
+    const TAB_KEY = 'sb_tab_' + (sessionStorage.getItem('tab_id') || (() => {
+      const id = Math.random().toString(36).slice(2);
+      sessionStorage.setItem('tab_id', id);
+      return id;
+    })());
     const tabStorage = {
-      getItem:    (key)        => sessionStorage.getItem(key),
-      setItem:    (key, value) => sessionStorage.setItem(key, value),
-      removeItem: (key)        => sessionStorage.removeItem(key),
+      getItem:    k => sessionStorage.getItem(TAB_KEY + k),
+      setItem:    (k,v) => sessionStorage.setItem(TAB_KEY + k, v),
+      removeItem: k => sessionStorage.removeItem(TAB_KEY + k),
     };
-    const client            = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: tabStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false } });
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { storage: tabStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
+    });
 
     // ── Join session ───────────────────────────────────────────
     async function handleJoin() {
