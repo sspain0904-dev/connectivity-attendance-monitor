@@ -482,6 +482,7 @@
         addLog('info', 'Connected to session channel');
 
         // Announce join via broadcast instead of presence
+        console.log('[STUDENT] sending student_join', currentUser.id, currentProfile.full_name);
         await channel.send({
           type: 'broadcast', event: 'student_join',
           payload: {
@@ -490,6 +491,7 @@
             joined_at: new Date().toISOString(),
           }
         });
+        console.log('[STUDENT] student_join sent');
 
         addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();

@@ -507,6 +507,7 @@
     channel.on('broadcast', {event:'student_join'}, ({payload}) => {
       const sid  = payload.student_id;
       const name = payload.name ?? sid.slice(0,8);
+      console.log('[JOIN]', sid, name, 'already tracked:', !!students[sid]);
       if (!sid) return;
 
       if (!students[sid]) {
