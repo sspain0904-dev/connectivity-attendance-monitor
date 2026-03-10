@@ -506,11 +506,30 @@
       if (key.startsWith('teacher')) return;
       const name = newPresences[0]?.name ?? key.slice(0,8);
       if (!students[key]) {
-        const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null};
+        // First time joining
+        const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,joinCount:1};
         students[key] = entry;
         historyEntries.push(entry);
       } else {
-        students[key].online=true; students[key].joinTime=new Date(); students[key].leaveTime=null;
+        // Rejoining — create a NEW history entry for this session
+        students[key].online = true;
+        students[key].lastLatency = null;
+        students[key].joinCount = (students[key].joinCount || 1) + 1;
+        const rejoinEntry = {
+          name: name + ' (rejoined)',
+          online: true,
+          lastLatency: null,
+          joinTime: new Date(),
+          leaveTime: null,
+          latencies: [],
+          heartbeats: 0,
+          disconnectTimer: null,
+          isRejoin: true,
+          parentKey: key,
+        };
+        // Link rejoin entry to student for live updates
+        students[key].rejoinEntry = rejoinEntry;
+        historyEntries.push(rejoinEntry);
       }
       renderGrid(); renderHistory();
     });
@@ -519,6 +538,10 @@
       if (key.startsWith('teacher')) return;
       if (students[key]) {
         students[key].leaveTime = new Date();
+        if (students[key].rejoinEntry) {
+          students[key].rejoinEntry.leaveTime = new Date();
+          students[key].rejoinEntry.online = false;
+        }
         // After 15s no heartbeat → show as red/disconnected
         clearTimeout(students[key].disconnectTimer);
         students[key].disconnectTimer = setTimeout(() => {
@@ -536,6 +559,13 @@
       students[sid].heartbeats++;
       students[sid].online = true;
       if (ms !== null) students[sid].latencies.push(ms);
+      // Also update rejoin entry if exists
+      if (students[sid].rejoinEntry) {
+        students[sid].rejoinEntry.lastLatency = ms;
+        students[sid].rejoinEntry.heartbeats++;
+        students[sid].rejoinEntry.online = true;
+        if (ms !== null) students[sid].rejoinEntry.latencies.push(ms);
+      }
 
       // Reset 15s disconnect timer
       clearTimeout(students[sid].disconnectTimer);
