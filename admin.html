@@ -505,15 +505,19 @@
     channel.on('presence',{event:'join'},({key,newPresences}) => {
       if (key.startsWith('teacher')) return;
       const name = newPresences[0]?.name ?? key.slice(0,8);
+      const now = Date.now();
+
       if (!students[key]) {
-        // First time joining
-        const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,joinCount:1};
+        // Brand new student
+        const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,joinCount:1,lastJoinEvent:now};
         students[key] = entry;
         historyEntries.push(entry);
-      } else if (students[key].leaveTime !== null) {
-        // Only create a rejoin entry if they actually left before
+
+      } else if (students[key].leaveTime !== null && (now - (students[key].lastJoinEvent||0)) > 2000) {
+        // Rejoining after confirmed leave AND not a duplicate event (>2s since last join event)
         students[key].online = true;
         students[key].lastLatency = null;
+        students[key].lastJoinEvent = now;
         students[key].joinCount = (students[key].joinCount || 1) + 1;
         const rejoinEntry = {
           name: name + ' (rejoined)',
@@ -529,10 +533,12 @@
         };
         students[key].rejoinEntry = rejoinEntry;
         historyEntries.push(rejoinEntry);
+
       } else {
-        // Already online — just update (duplicate presence event)
+        // Already online or duplicate event — just refresh
         students[key].online = true;
         students[key].name = name;
+        students[key].lastJoinEvent = now;
       }
       renderGrid(); renderHistory();
     });
@@ -624,14 +630,11 @@
         return {studentId, name: d.name, session_summary, status};
       };
 
-      const records = [];
-      Object.entries(students).forEach(([studentId, d]) => {
-        // Main record
-        records.push(buildRecord(studentId, d, false));
-        // Rejoin record if exists
-        if (d.rejoinEntry) {
-          records.push(buildRecord(studentId, d.rejoinEntry, true));
-        }
+      // Use historyEntries directly so every row in History = row in Summary
+      const records = historyEntries.map(d => {
+        // Find the studentId by matching the entry back to students
+        const studentId = d.parentKey ?? Object.keys(students).find(k => students[k] === d || students[k].rejoinEntry === d) ?? 'unknown';
+        return buildRecord(studentId, d, !!d.isRejoin);
       });
 
       if (records.length > 0) {
