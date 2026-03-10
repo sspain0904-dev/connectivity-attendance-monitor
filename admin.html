@@ -266,8 +266,8 @@
                 <th>Avg Ping</th>
                 <th>Joined</th>
                 <th>Left</th>
-                <th>Delay</th>
-                <th>Status</th>
+                <th>Duration</th>
+                <th>Net Status</th>
               </tr>
             </thead>
             <tbody id="summary-tbody"></tbody>
@@ -454,8 +454,8 @@
           <td style="color:${latColor(lc)}">${s.avg_latency !== null ? s.avg_latency+'ms' : 'N/A'}</td>
           <td style="color:var(--muted)">${s.join_time ?? '—'}</td>
           <td style="color:var(--muted)">${s.leave_time ?? '—'}</td>
-          <td style="color:${s.join_delay_sec > 60 ? '#fb923c' : 'var(--green)'}">${s.join_delay_sec > 0 ? '+' + s.join_delay_sec + 's' : 'On time'}</td>
-          <td style="color:${sColor[s.status]};font-weight:700">${s.status}</td>
+          <td style="color:var(--text)">${s.total_mins >= 60 ? Math.floor(s.total_mins/60) + 'h ' + Math.round(s.total_mins%60) + 'm' : s.total_mins + ' min'}</td>
+          <td style="color:${latColor(latClass(s.avg_latency))};font-weight:700">${s.avg_latency === null ? 'No Data' : s.avg_latency < 200 ? 'Good' : s.avg_latency < 500 ? 'Slow' : 'Poor'}</td>
         </tr>`;
       }).join('');
     switchTab('summary');
@@ -593,6 +593,7 @@
           join_time:    fmtTime(d.joinTime),
           leave_time:   fmtTime(d.leaveTime ?? sessionEnd) + (d.leaveTime ? '' : ' (session ended)'),
           join_delay_sec: Math.round(joinDelayMin * 60),
+          total_mins: Math.round(totalMin * 10) / 10,
         };
         return {studentId, name:d.name, session_summary, status};
       });

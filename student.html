@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Dashboard | Connectivity and Attendance Monitor</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg:      #020408;
@@ -21,7 +21,7 @@
     }
 
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'JetBrains Mono',monospace; background:var(--bg); color:var(--text); min-height:100vh; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 
     /* ── TOPBAR ── */
     .topbar {
@@ -64,14 +64,14 @@
 
     /* ── STATS ── */
     .stats-grid {
-      display:grid; grid-template-columns:repeat(4,1fr);
+      display:grid; grid-template-columns:repeat(3,1fr);
       gap:1rem; padding:1.5rem 1.5rem .75rem;
     }
     .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem; }
     .stat-header { display:flex; align-items:center; gap:.5rem; color:var(--muted); margin-bottom:.5rem; }
     .stat-header svg { width:15px; height:15px; }
     .stat-header span { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; }
-    .stat-value { font-size:1.75rem; font-weight:700; font-family:'Syne',sans-serif; transition:color .5s; }
+    .stat-value { font-size:1.75rem; font-weight:700; font-family:'Roboto Mono',monospace; transition:color .5s; }
 
     /* ── LATENCY COLOR CODING ── */
     .stat-value.lat-green  { color:var(--green); }
@@ -207,13 +207,7 @@
     </div>
     <div class="stat-value lat-gray" id="stat-latency">—</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-header">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-      <span>Heartbeats</span>
-    </div>
-    <div class="stat-value" style="color:var(--blue)" id="stat-heartbeats">0</div>
-  </div>
+
   <div class="stat-card">
     <div class="stat-header">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -369,7 +363,6 @@
       });
 
       heartbeatCount++;
-      document.getElementById('stat-heartbeats').textContent = heartbeatCount;
       addLog(
         ms === null ? 'error' : ms > 200 ? 'warn' : 'heartbeat',
         `Heartbeat — ${ms === null ? 'timeout' : ms + 'ms'}`
@@ -512,6 +505,7 @@
       }
     }, 15000);
   
+    
 
   init();
 </script>
