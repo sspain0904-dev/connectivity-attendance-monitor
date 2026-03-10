@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Dashboard | Connectivity and Attendance Monitor</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -385,7 +385,7 @@
       client.removeChannel(channel);
     }
     await client.auth.signOut();
-    localStorage.removeItem('active_session_id');
+    
     window.location.href = 'login.html';
   }
 
@@ -414,8 +414,9 @@
     document.getElementById('join-time').textContent     = joinTime.toLocaleTimeString();
     document.getElementById('user-id-display').textContent = currentUser.id.slice(0,8) + '...';
 
-    // 3. Get session ID from localStorage (saved by join.html)
-    activeSessionId = localStorage.getItem('active_session_id');
+    // 3. Get session ID from URL param ?session=ID (each tab has its own URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    activeSessionId = urlParams.get('session');
 
     if (!activeSessionId) {
       // No session stored — send back to join
@@ -438,7 +439,6 @@
 
     if (!sessionData) {
       // Session invalid or expired — clear and redirect
-      localStorage.removeItem('active_session_id');
       window.location.href = 'join.html';
       return;
     }
@@ -471,7 +471,6 @@
     channel = client.channel(channelName);
 
     channel.on('broadcast', { event: 'session_ended' }, () => {
-      localStorage.removeItem('active_session_id');
       showSessionEnded();
     });
 
@@ -482,7 +481,6 @@
         addLog('info', 'Connected to session channel');
 
         // Announce join via broadcast instead of presence
-        console.log('[STUDENT] sending student_join', currentUser.id, currentProfile.full_name);
         await channel.send({
           type: 'broadcast', event: 'student_join',
           payload: {
@@ -491,7 +489,6 @@
             joined_at: new Date().toISOString(),
           }
         });
-        console.log('[STUDENT] student_join sent');
 
         addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();
@@ -526,8 +523,7 @@
       const { data } = await client
         .from('sessions').select('is_active').eq('id', activeSessionId).single();
       if (data && !data.is_active) {
-        localStorage.removeItem('active_session_id');
-        showSessionEnded();
+          showSessionEnded();
       }
     }, 15000);
   

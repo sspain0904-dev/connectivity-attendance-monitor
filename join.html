@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Join Session</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -282,8 +282,7 @@
         if (!session) throw new Error('Invalid or expired passcode. Try again.');
 
         // Store session id and redirect to student dashboard
-        localStorage.setItem('active_session_id', session.id);
-        window.location.href = 'student.html';
+        window.location.href = 'student.html?session=' + session.id;
 
       } catch (err) {
         errorBox.textContent = err.message;
