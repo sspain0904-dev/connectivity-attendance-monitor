@@ -407,6 +407,14 @@
   // ── Init ───────────────────────────────────────────────────
   async function init() {
     // 1. Check auth
+    // Restore auth session from URL token if present (passed from join.html)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken   = urlParams.get('token');
+    const urlRefresh = urlParams.get('refresh');
+    if (urlToken && urlRefresh) {
+      await client.auth.setSession({ access_token: urlToken, refresh_token: urlRefresh });
+    }
+
     const { data: { session } } = await client.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
     currentUser = session.user;
@@ -421,7 +429,6 @@
     document.getElementById('user-id-display').textContent = currentUser.id.slice(0,8) + '...';
 
     // 3. Get session ID from URL param ?session=ID (each tab has its own URL)
-    const urlParams = new URLSearchParams(window.location.search);
     activeSessionId = urlParams.get('session');
 
     if (!activeSessionId) {

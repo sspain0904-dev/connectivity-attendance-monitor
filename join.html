@@ -287,8 +287,11 @@
         if (error) throw new Error('Database error. Try again.');
         if (!session) throw new Error('Invalid or expired passcode. Try again.');
 
-        // Store session id and redirect to student dashboard
-        window.location.href = 'student.html?session=' + session.id;
+        // Get current auth token and pass it to student.html so session survives navigation
+        const { data: { session: authSession } } = await client.auth.getSession();
+        const token = authSession?.access_token ?? '';
+        const refresh = authSession?.refresh_token ?? '';
+        window.location.href = 'student.html?session=' + session.id + '&token=' + encodeURIComponent(token) + '&refresh=' + encodeURIComponent(refresh);
 
       } catch (err) {
         errorBox.textContent = err.message;
