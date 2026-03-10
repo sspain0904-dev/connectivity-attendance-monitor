@@ -451,12 +451,22 @@
     addLog('info', `Joined session: ${courseName}`);
     addLog('info', `Signed in as ${profile?.full_name ?? currentUser.email}`);
 
-    // 6. Set up Realtime channel
+    // 6. Wake up Supabase then connect
+    addLog('info', 'Waking up server...');
+    for (let i = 0; i < 3; i++) {
+      try { await fetch(SUPABASE_URL + '/health', { method:'HEAD', cache:'no-store' }); break; } catch(e) {}
+      await new Promise(r => setTimeout(r, 1000));
+    }
     await setupChannel();
   }
 
+  let reconnectDelay = 3000;
+
   async function setupChannel() {
     const channelName = 'classroom-' + activeSessionId;
+
+    try { if (channel) { client.removeChannel(channel); channel = null; } } catch(e) {}
+
     channel = client.channel(channelName, { config: { presence: { key: currentUser.id } } });
 
     channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
@@ -471,6 +481,7 @@
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
+        reconnectDelay = 3000; // reset delay on success
         setStatus('connected');
         addLog('info', 'Connected to session channel');
         await channel.track({
@@ -482,14 +493,15 @@
         addLog('presence', 'Presence tracked - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();
         if (!uptimeTimer) startUptime();
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         setStatus('connecting');
-        addLog('warn', 'Channel issue - retrying in 3s...');
+        addLog('warn', `Reconnecting in ${reconnectDelay/1000}s...`);
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-        setTimeout(async () => {
-          try { if (channel) { client.removeChannel(channel); channel = null; } } catch(e) {}
+        // Exponential backoff: 3s, 6s, 12s, max 30s
+        setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
           setupChannel();
-        }, 3000);
+        }, reconnectDelay);
       }
     });
   }
