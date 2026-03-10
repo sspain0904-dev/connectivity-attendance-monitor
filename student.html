@@ -467,7 +467,8 @@
 
     try { if (channel) { client.removeChannel(channel); channel = null; } } catch(e) {}
 
-    channel = client.channel(channelName, { config: { presence: { key: currentUser.id } } });
+    const presenceKey = currentUser.id + '_' + Math.random().toString(36).slice(2,7);
+    channel = client.channel(channelName, { config: { presence: { key: presenceKey } } });
 
     channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
       if (key === currentUser.id) return;

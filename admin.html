@@ -502,65 +502,78 @@
     const channelName = 'classroom-' + sessionId;
     channel = client.channel(channelName, {config:{presence:{key:'teacher-'+currentUser.id}}});
 
-    // Track which keys we've already processed to avoid Supabase duplicate join events
-    const processedJoins = new Set();
-
-    channel.on('presence',{event:'join'},({key,newPresences}) => {
-      if (key.startsWith('teacher')) return;
-      const name = newPresences[0]?.name ?? key.slice(0,8);
+    channel.on('presence',{event:'sync'},() => {
+      const state = channel.presenceState();
       const now = Date.now();
 
-      if (!students[key]) {
-        // Brand new student - only process once per key
-        if (processedJoins.has(key)) return;
-        processedJoins.add(key);
-        setTimeout(() => processedJoins.delete(key), 5000); // reset after 5s
-        const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,joinCount:1,lastJoinEvent:now};
-        students[key] = entry;
-        historyEntries.push(entry);
+      // Build set of active student_ids from presence state
+      const activeIds = new Set();
 
-      } else if (students[key].leaveTime !== null && (now - (students[key].lastJoinEvent||0)) > 5000) {
-        // Confirmed rejoin: had a leaveTime AND 5s+ since last join event
-        students[key].online = true;
-        students[key].lastLatency = null;
-        students[key].lastJoinEvent = now;
-        students[key].leaveTime = null;
-        students[key].joinCount = (students[key].joinCount || 1) + 1;
-        const rejoinEntry = {
-          name: name + ' (rejoined)',
-          online: true,
-          lastLatency: null,
-          joinTime: new Date(),
-          leaveTime: null,
-          latencies: [],
-          heartbeats: 0,
-          disconnectTimer: null,
-          isRejoin: true,
-          parentKey: key,
-        };
-        students[key].rejoinEntry = rejoinEntry;
-        historyEntries.push(rejoinEntry);
+      Object.entries(state).forEach(([key, presences]) => {
+        if (key.startsWith('teacher')) return;
+        // Each presence entry has student_id in payload (the real user ID)
+        const payload = presences[0] ?? {};
+        const sid = payload.student_id ?? key;
+        const name = payload.name ?? key.slice(0,8);
+        activeIds.add(sid);
 
-      } else {
-        // Already online or stale duplicate — just refresh online state
-        students[key].online = true;
-        students[key].name = name;
-      }
+        if (!students[sid]) {
+          // Truly new student
+          const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,presenceKey:key};
+          students[sid] = entry;
+          historyEntries.push(entry);
+        } else if (!students[sid].online && students[sid].leaveTime !== null) {
+          // Confirmed rejoin — was offline before
+          students[sid].online = true;
+          students[sid].lastLatency = null;
+          students[sid].leaveTime = null;
+          students[sid].presenceKey = key;
+          const rejoinEntry = {
+            name: name + ' (rejoined)',
+            online: true, lastLatency: null,
+            joinTime: new Date(), leaveTime: null,
+            latencies: [], heartbeats: 0,
+            disconnectTimer: null,
+            isRejoin: true, parentKey: sid,
+          };
+          students[sid].rejoinEntry = rejoinEntry;
+          historyEntries.push(rejoinEntry);
+        } else {
+          // Already tracked — just keep online
+          students[sid].online = true;
+        }
+      });
+
+      // Mark students no longer in state as offline
+      Object.keys(students).forEach(sid => {
+        if (!activeIds.has(sid) && students[sid].online) {
+          students[sid].online = false;
+          students[sid].leaveTime = students[sid].leaveTime ?? new Date();
+          if (students[sid].rejoinEntry?.online) {
+            students[sid].rejoinEntry.online = false;
+            students[sid].rejoinEntry.leaveTime = students[sid].rejoinEntry.leaveTime ?? new Date();
+          }
+        }
+      });
+
       renderGrid(); renderHistory();
     });
 
-    channel.on('presence',{event:'leave'},({key}) => {
+    channel.on('presence',{event:'leave'},({key, leftPresences}) => {
       if (key.startsWith('teacher')) return;
-      if (students[key]) {
-        students[key].leaveTime = new Date();
-        if (students[key].rejoinEntry) {
-          students[key].rejoinEntry.leaveTime = new Date();
-          students[key].rejoinEntry.online = false;
+      // Extract real student_id from payload
+      const sid = leftPresences?.[0]?.student_id ?? key;
+      if (students[sid]) {
+        students[sid].leaveTime = new Date();
+        students[sid].online = false;
+        if (students[sid].rejoinEntry) {
+          students[sid].rejoinEntry.leaveTime = new Date();
+          students[sid].rejoinEntry.online = false;
         }
         // After 15s no heartbeat → show as red/disconnected
-        clearTimeout(students[key].disconnectTimer);
-        students[key].disconnectTimer = setTimeout(() => {
-          if (students[key]) { students[key].online=false; students[key].lastLatency=null; renderGrid(); renderHistory(); }
+        clearTimeout(students[sid].disconnectTimer);
+        students[sid].disconnectTimer = setTimeout(() => {
+          if (students[sid]) { students[sid].online=false; students[sid].lastLatency=null; renderGrid(); renderHistory(); }
         }, 15000);
       }
       renderGrid(); renderHistory();
