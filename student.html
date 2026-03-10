@@ -278,6 +278,7 @@
   let heartbeatTimer = null;
   let uptimeTimer    = null;
   let heartbeatCount = 0;
+  let lastLatStatus   = null;
   let uptimeSeconds  = 0;
   let activeSessionId= null;
   const joinTime     = new Date();
@@ -363,10 +364,15 @@
       });
 
       heartbeatCount++;
-      addLog(
-        ms === null ? 'error' : ms > 200 ? 'warn' : 'heartbeat',
-        `Heartbeat — ${ms === null ? 'timeout' : ms + 'ms'}`
-      );
+      // Only log latency when status changes or on timeout
+      const newLatStatus = ms === null ? 'timeout' : ms > 200 ? 'slow' : 'good';
+      if (newLatStatus !== lastLatStatus || ms === null) {
+        lastLatStatus = newLatStatus;
+        addLog(
+          ms === null ? 'error' : ms > 200 ? 'warn' : 'info',
+          ms === null ? 'Connection timeout!' : `Network ${newLatStatus} — ${ms}ms`
+        );
+      }
     }, 10000);
   }
 
@@ -505,7 +511,6 @@
       }
     }, 15000);
   
-    
 
   init();
 </script>
