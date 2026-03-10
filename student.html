@@ -270,20 +270,7 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
   const { createClient }  = supabase;
 
-  // Each tab gets a unique storage key so students don't share auth
-  const TAB_KEY = 'sb_tab_' + (sessionStorage.getItem('tab_id') || (() => {
-    const id = Math.random().toString(36).slice(2);
-    sessionStorage.setItem('tab_id', id);
-    return id;
-  })());
-  const tabStorage = {
-    getItem:    k => sessionStorage.getItem(TAB_KEY + k),
-    setItem:    (k,v) => sessionStorage.setItem(TAB_KEY + k, v),
-    removeItem: k => sessionStorage.removeItem(TAB_KEY + k),
-  };
-  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { storage: tabStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
-  });
+  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // ── State ──────────────────────────────────────────────────
   let currentUser    = null;
@@ -367,15 +354,12 @@
       const ms = await measureLatency();
       updateLatencyDisplay(ms);
 
-      await channel.send({
-        type: 'broadcast', event: 'heartbeat',
-        payload: {
-          student_id: currentUser.id,
-          name:       currentProfile.full_name,
-          latency_ms: ms,
-          timestamp:  new Date().toISOString(),
-        }
-      });
+      // Update DB with latest latency — teacher reads from here
+      await client.from('live_students').update({
+        last_seen:  new Date().toISOString(),
+        latency_ms: ms,
+        is_online:  true,
+      }).eq('session_id', activeSessionId).eq('student_id', currentUser.id);
 
       heartbeatCount++;
       // Only log latency when status changes or on timeout
@@ -415,14 +399,6 @@
   // ── Init ───────────────────────────────────────────────────
   async function init() {
     // 1. Check auth
-    // Restore auth session from URL token if present (passed from join.html)
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken   = urlParams.get('token');
-    const urlRefresh = urlParams.get('refresh');
-    if (urlToken && urlRefresh) {
-      await client.auth.setSession({ access_token: urlToken, refresh_token: urlRefresh });
-    }
-
     const { data: { session } } = await client.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
     currentUser = session.user;
@@ -501,15 +477,16 @@
         setStatus('connected');
         addLog('info', 'Connected to session channel');
 
-        // Announce join via broadcast instead of presence
-        await channel.send({
-          type: 'broadcast', event: 'student_join',
-          payload: {
-            student_id: currentUser.id,
-            name: currentProfile.full_name,
-            joined_at: new Date().toISOString(),
-          }
-        });
+        // Write join to DB — reliable for any number of students
+        await client.from('live_students').upsert({
+          session_id:  activeSessionId,
+          student_id:  currentUser.id,
+          name:        currentProfile.full_name,
+          joined_at:   new Date().toISOString(),
+          last_seen:   new Date().toISOString(),
+          latency_ms:  null,
+          is_online:   true,
+        }, { onConflict: 'session_id,student_id' });
 
         addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();
@@ -530,12 +507,14 @@
     window.addEventListener('beforeunload', () => {
       clearInterval(heartbeatTimer);
       clearInterval(uptimeTimer);
-      // Broadcast leave so teacher knows immediately
-      if (channel) {
-        channel.send({
-          type: 'broadcast', event: 'student_leave',
-          payload: { student_id: currentUser.id, name: currentProfile.full_name }
-        });
+      // Mark offline in DB
+      if (currentUser && activeSessionId) {
+        navigator.sendBeacon && navigator.sendBeacon(
+          `${SUPABASE_URL}/rest/v1/live_students?session_id=eq.${activeSessionId}&student_id=eq.${currentUser.id}`,
+        );
+        // Best-effort update
+        client.from('live_students').update({ is_online: false, left_at: new Date().toISOString() })
+          .eq('session_id', activeSessionId).eq('student_id', currentUser.id);
       }
     });
 
