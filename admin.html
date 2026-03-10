@@ -741,6 +741,9 @@
 
   async function init() {
     try {
+      // Clear any stale role cache from previous sessions
+      Object.keys(sessionStorage).filter(k => k.startsWith('cam_role_') || k.startsWith('sb_tab_')).forEach(k => sessionStorage.removeItem(k));
+
       const {data:{session}} = await client.auth.getSession();
       if (!session) { window.location.href='login.html'; return; }
       currentUser = session.user;
@@ -772,10 +775,7 @@
       // Update cache with fresh confirmed role
       sessionStorage.setItem(cacheKey, profile.role);
 
-      // Only redirect to student if FRESHLY confirmed as student
-      if (profile.role === 'student') {
-        window.location.href = 'student.html'; return;
-      }
+      // Only allow teachers — redirect everyone else to login
       if (profile.role !== 'teacher') {
         window.location.href = 'login.html'; return;
       }
