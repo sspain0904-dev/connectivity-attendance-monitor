@@ -500,80 +500,49 @@
   // ── Channel setup ─────────────────────────────────────────
   function setupChannel() {
     const channelName = 'classroom-' + sessionId;
-    channel = client.channel(channelName, {config:{presence:{key:'teacher-'+currentUser.id}}});
+    // Pure broadcast channel — no presence, works for any number of students
+    channel = client.channel(channelName);
 
-    channel.on('presence',{event:'sync'},() => {
-      const state = channel.presenceState();
-      const now = Date.now();
+    // Student joins
+    channel.on('broadcast', {event:'student_join'}, ({payload}) => {
+      const sid  = payload.student_id;
+      const name = payload.name ?? sid.slice(0,8);
+      if (!sid) return;
 
-      // Build set of active student_ids from presence state
-      const activeIds = new Set();
-
-      // Loop every individual presence payload (each key can have multiple presences)
-      Object.entries(state).forEach(([key, presences]) => {
-        presences.forEach(payload => {
-          if (key.startsWith('teacher') || payload.role === 'teacher') return;
-          const sid = payload.student_id ?? key;
-          const name = payload.name ?? key.slice(0,8);
-          activeIds.add(sid);
-
-          if (!students[sid]) {
-            // Truly new student
-            const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null};
-            students[sid] = entry;
-            historyEntries.push(entry);
-          } else if (!students[sid].online && students[sid].leaveTime !== null) {
-            // Confirmed rejoin — was offline before
-            students[sid].online = true;
-            students[sid].lastLatency = null;
-            students[sid].leaveTime = null;
-            const rejoinEntry = {
-              name: name + ' (rejoined)',
-              online: true, lastLatency: null,
-              joinTime: new Date(), leaveTime: null,
-              latencies: [], heartbeats: 0,
-              disconnectTimer: null,
-              isRejoin: true, parentKey: sid,
-            };
-            students[sid].rejoinEntry = rejoinEntry;
-            historyEntries.push(rejoinEntry);
-          } else {
-            students[sid].online = true;
-          }
-        });
-      });
-
-      // Mark students no longer in state as offline
-      Object.keys(students).forEach(sid => {
-        if (!activeIds.has(sid) && students[sid].online) {
-          students[sid].online = false;
-          students[sid].leaveTime = students[sid].leaveTime ?? new Date();
-          if (students[sid].rejoinEntry?.online) {
-            students[sid].rejoinEntry.online = false;
-            students[sid].rejoinEntry.leaveTime = students[sid].rejoinEntry.leaveTime ?? new Date();
-          }
-        }
-      });
-
+      if (!students[sid]) {
+        // New student
+        const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null};
+        students[sid] = entry;
+        historyEntries.push(entry);
+      } else if (!students[sid].online && students[sid].leaveTime !== null) {
+        // Confirmed rejoin
+        students[sid].online = true;
+        students[sid].lastLatency = null;
+        students[sid].leaveTime = null;
+        clearTimeout(students[sid].disconnectTimer);
+        const rejoinEntry = {
+          name: name + ' (rejoined)', online:true, lastLatency:null,
+          joinTime:new Date(), leaveTime:null, latencies:[], heartbeats:0,
+          disconnectTimer:null, isRejoin:true, parentKey:sid,
+        };
+        students[sid].rejoinEntry = rejoinEntry;
+        historyEntries.push(rejoinEntry);
+      } else {
+        // Already tracked online — ignore duplicate
+        students[sid].online = true;
+      }
       renderGrid(); renderHistory();
     });
 
-    channel.on('presence',{event:'leave'},({key, leftPresences}) => {
-      if (key.startsWith('teacher')) return;
-      // Extract real student_id from payload
-      const sid = leftPresences?.[0]?.student_id ?? key;
-      if (students[sid]) {
-        students[sid].leaveTime = new Date();
-        students[sid].online = false;
-        if (students[sid].rejoinEntry) {
-          students[sid].rejoinEntry.leaveTime = new Date();
-          students[sid].rejoinEntry.online = false;
-        }
-        // After 15s no heartbeat → show as red/disconnected
-        clearTimeout(students[sid].disconnectTimer);
-        students[sid].disconnectTimer = setTimeout(() => {
-          if (students[sid]) { students[sid].online=false; students[sid].lastLatency=null; renderGrid(); renderHistory(); }
-        }, 15000);
+    // Student leaves
+    channel.on('broadcast', {event:'student_leave'}, ({payload}) => {
+      const sid = payload.student_id;
+      if (!sid || !students[sid]) return;
+      students[sid].online    = false;
+      students[sid].leaveTime = new Date();
+      if (students[sid].rejoinEntry?.online) {
+        students[sid].rejoinEntry.online    = false;
+        students[sid].rejoinEntry.leaveTime = new Date();
       }
       renderGrid(); renderHistory();
     });
@@ -603,9 +572,7 @@
       renderGrid(); renderHistory();
     });
 
-    channel.subscribe(async(status) => {
-      if (status==='SUBSCRIBED') await channel.track({role:'teacher',name:currentProfile.full_name});
-    });
+    channel.subscribe();
   }
 
   // ── End session ───────────────────────────────────────────

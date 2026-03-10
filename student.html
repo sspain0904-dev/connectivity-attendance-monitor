@@ -467,13 +467,8 @@
 
     try { if (channel) { client.removeChannel(channel); channel = null; } } catch(e) {}
 
-    const presenceKey = currentUser.id + '_' + Math.random().toString(36).slice(2,7);
-    channel = client.channel(channelName, { config: { presence: { key: presenceKey } } });
-
-    channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-      if (key === currentUser.id) return;
-      addLog('presence', (newPresences[0]?.name ?? key) + ' joined');
-    });
+    // No presence config — use pure broadcast so any number of students can join
+    channel = client.channel(channelName);
 
     channel.on('broadcast', { event: 'session_ended' }, () => {
       localStorage.removeItem('active_session_id');
@@ -482,23 +477,27 @@
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        reconnectDelay = 3000; // reset delay on success
+        reconnectDelay = 3000;
         setStatus('connected');
         addLog('info', 'Connected to session channel');
-        await channel.track({
-          student_id: currentUser.id,
-          name: currentProfile.full_name,
-          joined_at: new Date().toISOString(),
-          status: 'online',
+
+        // Announce join via broadcast instead of presence
+        await channel.send({
+          type: 'broadcast', event: 'student_join',
+          payload: {
+            student_id: currentUser.id,
+            name: currentProfile.full_name,
+            joined_at: new Date().toISOString(),
+          }
         });
-        addLog('presence', 'Presence tracked - ' + new Date().toLocaleTimeString());
+
+        addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();
         if (!uptimeTimer) startUptime();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         setStatus('connecting');
         addLog('warn', `Reconnecting in ${reconnectDelay/1000}s...`);
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-        // Exponential backoff: 3s, 6s, 12s, max 30s
         setTimeout(() => {
           reconnectDelay = Math.min(reconnectDelay * 2, 30000);
           setupChannel();
@@ -508,10 +507,16 @@
   }
 
       // 9. Clean up on page close/refresh
-    window.addEventListener('beforeunload', async () => {
+    window.addEventListener('beforeunload', () => {
       clearInterval(heartbeatTimer);
       clearInterval(uptimeTimer);
-      if (channel) await channel.untrack();
+      // Broadcast leave so teacher knows immediately
+      if (channel) {
+        channel.send({
+          type: 'broadcast', event: 'student_leave',
+          payload: { student_id: currentUser.id, name: currentProfile.full_name }
+        });
+      }
     });
 
     // 10. Poll every 15s to check if session is still active
