@@ -454,7 +454,7 @@
           <td style="color:${latColor(lc)}">${s.avg_latency !== null ? s.avg_latency+'ms' : 'N/A'}</td>
           <td style="color:var(--muted)">${s.join_time ?? '—'}</td>
           <td style="color:var(--muted)">${s.leave_time ?? '—'}</td>
-          <td style="color:var(--text)">${s.total_mins >= 60 ? Math.floor(s.total_mins/60) + 'h ' + Math.round(s.total_mins%60) + 'm' : s.total_mins >= 1 ? Math.round(s.total_mins) + ' min' : Math.round(s.total_mins*60) + ' sec'}</td>
+          <td style="color:var(--text)">${s.total_mins >= 60 ? Math.floor(s.total_mins/60) + 'h ' + Math.floor(s.total_mins%60) + 'min ' + Math.round((s.total_mins%1)*60) + 'sec' : Math.floor(s.total_mins) > 0 ? Math.floor(s.total_mins) + 'min ' + Math.round((s.total_mins%1)*60) + 'sec' : Math.round(s.total_mins*60) + 'sec'}</td>
           <td style="color:${latColor(latClass(s.avg_latency))};font-weight:700">${s.avg_latency === null ? 'No Data' : s.avg_latency < 200 ? 'Good' : s.avg_latency < 500 ? 'Slow' : 'Poor'}</td>
         </tr>`;
       }).join('');
