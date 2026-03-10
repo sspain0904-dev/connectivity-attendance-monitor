@@ -502,22 +502,29 @@
     const channelName = 'classroom-' + sessionId;
     channel = client.channel(channelName, {config:{presence:{key:'teacher-'+currentUser.id}}});
 
+    // Track which keys we've already processed to avoid Supabase duplicate join events
+    const processedJoins = new Set();
+
     channel.on('presence',{event:'join'},({key,newPresences}) => {
       if (key.startsWith('teacher')) return;
       const name = newPresences[0]?.name ?? key.slice(0,8);
       const now = Date.now();
 
       if (!students[key]) {
-        // Brand new student
+        // Brand new student - only process once per key
+        if (processedJoins.has(key)) return;
+        processedJoins.add(key);
+        setTimeout(() => processedJoins.delete(key), 5000); // reset after 5s
         const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,joinCount:1,lastJoinEvent:now};
         students[key] = entry;
         historyEntries.push(entry);
 
-      } else if (students[key].leaveTime !== null && (now - (students[key].lastJoinEvent||0)) > 2000) {
-        // Rejoining after confirmed leave AND not a duplicate event (>2s since last join event)
+      } else if (students[key].leaveTime !== null && (now - (students[key].lastJoinEvent||0)) > 5000) {
+        // Confirmed rejoin: had a leaveTime AND 5s+ since last join event
         students[key].online = true;
         students[key].lastLatency = null;
         students[key].lastJoinEvent = now;
+        students[key].leaveTime = null;
         students[key].joinCount = (students[key].joinCount || 1) + 1;
         const rejoinEntry = {
           name: name + ' (rejoined)',
@@ -535,10 +542,9 @@
         historyEntries.push(rejoinEntry);
 
       } else {
-        // Already online or duplicate event — just refresh
+        // Already online or stale duplicate — just refresh online state
         students[key].online = true;
         students[key].name = name;
-        students[key].lastJoinEvent = now;
       }
       renderGrid(); renderHistory();
     });
