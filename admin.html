@@ -510,8 +510,8 @@
         const entry = {name,online:true,lastLatency:null,joinTime:new Date(),leaveTime:null,latencies:[],heartbeats:0,disconnectTimer:null,joinCount:1};
         students[key] = entry;
         historyEntries.push(entry);
-      } else {
-        // Rejoining — create a NEW history entry for this session
+      } else if (students[key].leaveTime !== null) {
+        // Only create a rejoin entry if they actually left before
         students[key].online = true;
         students[key].lastLatency = null;
         students[key].joinCount = (students[key].joinCount || 1) + 1;
@@ -527,9 +527,12 @@
           isRejoin: true,
           parentKey: key,
         };
-        // Link rejoin entry to student for live updates
         students[key].rejoinEntry = rejoinEntry;
         historyEntries.push(rejoinEntry);
+      } else {
+        // Already online — just update (duplicate presence event)
+        students[key].online = true;
+        students[key].name = name;
       }
       renderGrid(); renderHistory();
     });
@@ -592,21 +595,15 @@
 
       await client.from('sessions').update({is_active:false}).eq('id',sessionId);
 
-      const records = Object.entries(students).map(([studentId,d]) => {
-        // Use actual leave time if they left, otherwise session end time
+      // Build records from all history entries (includes rejoins as separate rows)
+      const buildRecord = (studentId, d, isRejoin) => {
         const leaveT      = d.leaveTime ?? sessionEnd;
         const totalMs     = leaveT - d.joinTime;
         const totalMin    = Math.round(totalMs/60000*10)/10;
         const avg         = avgLat(d.latencies);
-
-        // How many minutes after session start did the student join?
         const joinDelayMin  = (d.joinTime - sessionStart) / 60000;
         const presencePct   = sessionLenMin > 0 ? (totalMin / sessionLenMin) * 100 : 0;
-        const leftEarlyMin  = (sessionEnd - leaveT) / 60000;
 
-        // PRESENT = attended 75%+ of session and joined on time
-        // LATE    = attended 75%+ but joined after 20% of session elapsed
-        // ABSENT  = attended less than 75% of session
         let status;
         if (presencePct >= 75) {
           status = joinDelayMin / sessionLenMin > 0.2 ? 'LATE' : 'PRESENT';
@@ -615,7 +612,7 @@
         }
 
         const session_summary = {
-          total_mins:   totalMin,
+          total_mins:   Math.round(totalMin * 10) / 10,
           avg_latency:  avg,
           status,
           session_length_mins: Math.round(sessionLenMin*10)/10,
@@ -623,9 +620,18 @@
           join_time:    fmtTime(d.joinTime),
           leave_time:   fmtTime(d.leaveTime ?? sessionEnd) + (d.leaveTime ? '' : ' (session ended)'),
           join_delay_sec: Math.round(joinDelayMin * 60),
-          total_mins: Math.round(totalMin * 10) / 10,
         };
-        return {studentId, name:d.name, session_summary, status};
+        return {studentId, name: d.name, session_summary, status};
+      };
+
+      const records = [];
+      Object.entries(students).forEach(([studentId, d]) => {
+        // Main record
+        records.push(buildRecord(studentId, d, false));
+        // Rejoin record if exists
+        if (d.rejoinEntry) {
+          records.push(buildRecord(studentId, d.rejoinEntry, true));
+        }
       });
 
       if (records.length > 0) {
