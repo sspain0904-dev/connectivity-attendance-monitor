@@ -404,7 +404,13 @@
 
   // ── Init ───────────────────────────────────────────────────
   async function init() {
-    // 1. Check auth
+    // 1. Restore session from URL if present (passed from join.html)
+    const _p = new URLSearchParams(window.location.search);
+    const _t = _p.get('t'), _r = _p.get('r');
+    if (_t && _r) {
+      await client.auth.setSession({ access_token: _t, refresh_token: _r });
+    }
+
     const { data: { session } } = await client.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
     currentUser = session.user;
