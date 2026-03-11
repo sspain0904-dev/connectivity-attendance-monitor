@@ -251,20 +251,10 @@
     const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
     const { createClient }  = supabase;
-    // Tab-isolated auth so multiple students can use same browser
-    const TAB_KEY = 'sb_tab_' + (sessionStorage.getItem('tab_id') || (() => {
-      const id = Math.random().toString(36).slice(2);
-      sessionStorage.setItem('tab_id', id);
-      return id;
-    })());
-    const tabStorage = {
-      getItem:    k => sessionStorage.getItem(TAB_KEY + k),
-      setItem:    (k,v) => sessionStorage.setItem(TAB_KEY + k, v),
-      removeItem: k => sessionStorage.removeItem(TAB_KEY + k),
-    };
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { storage: tabStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
-    });
+    // Per-tab auth — same tab_id as student.html so session carries over
+    const _tid = sessionStorage.getItem('_tab') || (()=>{ const t=Math.random().toString(36).slice(2); sessionStorage.setItem('_tab',t); return t; })();
+    const _store = { getItem: k=>sessionStorage.getItem(_tid+k), setItem:(k,v)=>sessionStorage.setItem(_tid+k,v), removeItem:k=>sessionStorage.removeItem(_tid+k) };
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: _store, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
 
     // ── Join session ───────────────────────────────────────────
     async function handleJoin() {
@@ -294,11 +284,7 @@
         if (error) throw new Error('Database error. Try again.');
         if (!session) throw new Error('Invalid or expired passcode. Try again.');
 
-        // Get current auth token and pass it to student.html so session survives navigation
-        const { data: { session: authSession } } = await client.auth.getSession();
-        const token = authSession?.access_token ?? '';
-        const refresh = authSession?.refresh_token ?? '';
-        window.location.href = 'student.html?session=' + session.id + '&token=' + encodeURIComponent(token) + '&refresh=' + encodeURIComponent(refresh);
+        window.location.href = 'student.html?session=' + session.id;
 
       } catch (err) {
         errorBox.textContent = err.message;

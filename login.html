@@ -287,7 +287,12 @@
     const SUPABASE_URL      = 'https://lxsiqkdlpknjevrebfhe.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
     const { createClient }  = supabase;
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Per-tab auth for student flow; teachers will re-auth via localStorage on admin.html
+    const _tid = sessionStorage.getItem('_tab') || (()=>{ const t=Math.random().toString(36).slice(2); sessionStorage.setItem('_tab',t); return t; })();
+    const _store = { getItem: k=>sessionStorage.getItem(_tid+k), setItem:(k,v)=>sessionStorage.setItem(_tid+k,v), removeItem:k=>sessionStorage.removeItem(_tid+k) };
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: _store, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+    // Separate normal client for teacher redirect (uses localStorage that admin.html reads)
+    const teacherClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ── Toggle password visibility ─────────────────────────────
     function togglePassword() {
@@ -346,6 +351,8 @@
 
         // 3. Redirect based on role
         if (profile.role === 'teacher') {
+          // Sign in via localStorage client so admin.html can find the session
+          await teacherClient.auth.signInWithPassword({ email, password });
           window.location.href = 'admin.html';
         } else if (profile.role === 'student') {
           

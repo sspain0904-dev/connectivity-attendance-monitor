@@ -270,7 +270,10 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
   const { createClient }  = supabase;
 
-  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Per-tab auth so multiple students can use same browser
+  const _tid = sessionStorage.getItem('_tab') || (()=>{ const t=Math.random().toString(36).slice(2); sessionStorage.setItem('_tab',t); return t; })();
+  const _store = { getItem: k=>sessionStorage.getItem(_tid+k), setItem:(k,v)=>sessionStorage.setItem(_tid+k,v), removeItem:k=>sessionStorage.removeItem(_tid+k) };
+  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: _store, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
 
   // ── State ──────────────────────────────────────────────────
   let currentUser    = null;
@@ -416,7 +419,7 @@
     document.getElementById('user-id-display').textContent = currentUser.id.slice(0,8) + '...';
 
     // 3. Get session ID from URL param ?session=ID (each tab has its own URL)
-    activeSessionId = urlParams.get('session');
+    activeSessionId = new URLSearchParams(window.location.search).get('session');
 
     if (!activeSessionId) {
       // No session stored — send back to join
@@ -524,7 +527,6 @@
           showSessionEnded();
       }
     }, 15000);
-  
   
 
   init();
