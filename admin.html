@@ -411,9 +411,14 @@
       const pings = lastMs !== null
         ? `<span class="ping-chip ping-${latClass(lastMs)}">${lastMs}ms</span>`
         : '';
-      const dur = e.leaveTime && e.joinTime
-        ? Math.round((e.leaveTime - e.joinTime)/60000) + ' min'
-        : 'Active';
+      const dur = (() => {
+        if (!e.leaveTime || !e.joinTime) return 'Active';
+        const s = Math.floor((e.leaveTime - e.joinTime) / 1000);
+        if (s < 60) return s + 'sec';
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = s % 60;
+        if (h > 0) return `${h}h ${m}min ${sc}sec`;
+        return sc > 0 ? `${m}min ${sc}sec` : `${m}min`;
+      })();
 
       return `<div class="history-entry">
         <div>
