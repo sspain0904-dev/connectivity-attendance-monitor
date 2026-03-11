@@ -549,7 +549,14 @@
       students[sid].lastLatency = ms;
       clearTimeout(students[sid].disconnectTimer);
       students[sid].disconnectTimer = setTimeout(() => {
-        if (students[sid]) { students[sid].online=false; students[sid].lastLatency=null; renderGrid(); renderHistory(); }
+        if (!students[sid]) return;
+        const leaveNow = new Date();
+        students[sid].online = false;
+        students[sid].lastLatency = null;
+        if (!students[sid].leaveTime) students[sid].leaveTime = leaveNow;
+        const re = students[sid].rejoinEntry;
+        if (re && re.online) { re.online = false; re.lastLatency = null; if (!re.leaveTime) re.leaveTime = leaveNow; }
+        renderGrid(); renderHistory();
       }, 20000);
       renderGrid(); renderHistory();
     });

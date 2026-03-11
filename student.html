@@ -368,15 +368,11 @@
       });
 
       heartbeatCount++;
-      // Only log latency when status changes or on timeout
-      const newLatStatus = ms === null ? 'timeout' : ms > 200 ? 'slow' : 'good';
-      if (newLatStatus !== lastLatStatus || ms === null) {
-        lastLatStatus = newLatStatus;
-        addLog(
-          ms === null ? 'error' : ms > 200 ? 'warn' : 'info',
-          ms === null ? 'Connection timeout!' : `Network ${newLatStatus} — ${ms}ms`
-        );
-      }
+      // Always log — show every latency reading in activity log
+      addLog(
+        ms === null ? 'error' : ms > 200 ? 'warn' : 'info',
+        ms === null ? 'Connection timeout!' : `Latency — ${ms}ms`
+      );
     }, 10000);
   }
 
