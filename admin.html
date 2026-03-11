@@ -497,83 +497,64 @@
     }
   }
 
-  // ── Poll DB for students ──────────────────────────────────
-  let pollTimer = null;
-
+  // ── Channel setup ─────────────────────────────────────────
   function setupChannel() {
-    // Only need broadcast channel for session_ended signal to students
     const channelName = 'classroom-' + sessionId;
     channel = client.channel(channelName);
-    channel.subscribe();
 
-    // Poll DB every 3s — works for any number of students, no race conditions
-    pollTimer = setInterval(pollStudents, 3000);
-    pollStudents(); // immediate first fetch
-  }
-
-  async function pollStudents() {
-    if (!sessionId) return;
-    const { data, error } = await client
-      .from('live_students')
-      .select('student_id, name, joined_at, last_seen, latency_ms, is_online, left_at')
-      .eq('session_id', sessionId);
-
-    if (error || !data) return;
-    const now = new Date();
-
-    data.forEach(row => {
-      const sid  = row.student_id;
-      const name = row.name;
-      const ms   = row.latency_ms;
-      // Consider offline if last_seen > 20s ago
-      const lastSeen = row.last_seen ? new Date(row.last_seen) : null;
-      const isOnline = row.is_online && lastSeen && (now - lastSeen) < 20000;
-
+    channel.on('broadcast', {event:'student_join'}, ({payload}) => {
+      const sid  = payload.student_id;
+      const name = payload.name ?? 'Unknown';
+      if (!sid) return;
       if (!students[sid]) {
-        // New student seen
-        const entry = {
-          name, online: isOnline, lastLatency: ms,
-          joinTime: new Date(row.joined_at), leaveTime: null,
-          latencies: ms !== null ? [ms] : [], heartbeats: 0,
-          disconnectTimer: null,
-        };
+        const entry = {name, online:true, lastLatency:null, joinTime:new Date(), leaveTime:null, latencies:[], heartbeats:0, disconnectTimer:null};
         students[sid] = entry;
         historyEntries.push(entry);
+      } else if (!students[sid].online && students[sid].leaveTime !== null) {
+        students[sid].online = true;
+        students[sid].lastLatency = null;
+        students[sid].leaveTime = null;
+        clearTimeout(students[sid].disconnectTimer);
+        const rejoinEntry = {name: name+' (rejoined)', online:true, lastLatency:null, joinTime:new Date(), leaveTime:null, latencies:[], heartbeats:0, disconnectTimer:null, isRejoin:true, parentKey:sid};
+        students[sid].rejoinEntry = rejoinEntry;
+        historyEntries.push(rejoinEntry);
       } else {
-        const s = students[sid].rejoinEntry ?? students[sid];
-        // Update latency
-        if (ms !== null && (s.latencies.length === 0 || s.latencies[s.latencies.length-1] !== ms)) {
-          s.latencies.push(ms);
-          s.heartbeats++;
-        }
-        s.lastLatency = ms;
-
-        // Detect rejoin: was offline, now online again
-        if (!students[sid].online && isOnline && students[sid].leaveTime !== null) {
-          students[sid].online = true;
-          students[sid].leaveTime = null;
-          const rejoinEntry = {
-            name: name + ' (rejoined)', online: true, lastLatency: ms,
-            joinTime: new Date(), leaveTime: null,
-            latencies: ms !== null ? [ms] : [], heartbeats: 0,
-            disconnectTimer: null, isRejoin: true, parentKey: sid,
-          };
-          students[sid].rejoinEntry = rejoinEntry;
-          historyEntries.push(rejoinEntry);
-        }
-
-        students[sid].online = isOnline;
-        if (!isOnline && !students[sid].leaveTime) {
-          students[sid].leaveTime = row.left_at ? new Date(row.left_at) : now;
-          if (students[sid].rejoinEntry?.online) {
-            students[sid].rejoinEntry.online = false;
-            students[sid].rejoinEntry.leaveTime = students[sid].leaveTime;
-          }
-        }
+        students[sid].online = true;
       }
+      renderGrid(); renderHistory();
     });
 
-    renderGrid(); renderHistory();
+    channel.on('broadcast', {event:'student_leave'}, ({payload}) => {
+      const sid = payload.student_id;
+      if (!sid || !students[sid]) return;
+      students[sid].online = false;
+      students[sid].leaveTime = new Date();
+      if (students[sid].rejoinEntry?.online) {
+        students[sid].rejoinEntry.online = false;
+        students[sid].rejoinEntry.leaveTime = new Date();
+      }
+      renderGrid(); renderHistory();
+    });
+
+    channel.on('broadcast', {event:'heartbeat'}, ({payload}) => {
+      const sid = payload.student_id;
+      if (!students[sid]) return;
+      const ms = payload.latency_ms;
+      const entry = students[sid].rejoinEntry ?? students[sid];
+      entry.lastLatency = ms;
+      entry.heartbeats++;
+      entry.online = true;
+      if (ms !== null) entry.latencies.push(ms);
+      students[sid].online = true;
+      students[sid].lastLatency = ms;
+      clearTimeout(students[sid].disconnectTimer);
+      students[sid].disconnectTimer = setTimeout(() => {
+        if (students[sid]) { students[sid].online=false; students[sid].lastLatency=null; renderGrid(); renderHistory(); }
+      }, 20000);
+      renderGrid(); renderHistory();
+    });
+
+    channel.subscribe();
   }
 
   // ── End session ───────────────────────────────────────────
@@ -639,7 +620,6 @@
       setStatus(`Done! ${records.length} record(s) saved.`,'var(--green)');
 
       clearInterval(sessionTimerInt);
-      clearInterval(pollTimer);
       document.getElementById('session-pill').className   = 'session-pill inactive';
       document.getElementById('pill-text').textContent    = 'No Session';
       document.getElementById('session-timer').textContent= '—';
