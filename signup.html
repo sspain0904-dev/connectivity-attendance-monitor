@@ -179,7 +179,8 @@
         message.textContent = error.message
       } else {
         message.className = 'success'
-        message.textContent = 'Account created! Check your email to confirm.'
+        message.textContent = 'Account created! You can now log in.'
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500)
       }
     }
   </script>
