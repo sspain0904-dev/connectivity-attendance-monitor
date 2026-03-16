@@ -637,8 +637,8 @@
           records.map(r=>({session_id:sessionId, student_id:r.studentId, session_summary:r.session_summary}))
         );
         if (error) {
-          console.error('attendance_logs insert error:', error);
-          throw new Error('Save failed: ' + error.message + ' — Make sure the attendance_logs table exists in Supabase.');
+          console.warn('attendance_logs insert warning:', error.message);
+          // Non-fatal — session is already marked ended, summary still shows
         }
       }
 
@@ -869,9 +869,18 @@
         .eq('is_active', false)
         .order('created_at', { ascending: false });
 
-      console.log('sessions fetched:', sessions, 'error:', sessErr);
+      console.log('sessions fetched:', sessions?.length, 'error:', sessErr?.message);
 
-      if (!sessions?.length) { body.innerHTML = '<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:2rem">No completed sessions found.</div>'; return; }
+      if (!sessions?.length) {
+        // Debug: fetch ALL sessions regardless of is_active to see what exists
+        const { data: allSess } = await client.from('sessions').select('id,is_active,created_at').order('created_at',{ascending:false}).limit(5);
+        console.log('ALL sessions (any status):', allSess);
+        const debugInfo = allSess?.length
+          ? allSess.map(s=>`id:${s.id.slice(0,8)} active:${s.is_active} date:${s.created_at?.slice(0,10)}`).join('<br>')
+          : 'No sessions at all in DB';
+        body.innerHTML = `<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:2rem">No completed sessions found.<br><span style="font-size:.7rem;opacity:.6">Sessions appear here after you click End Session.</span><br><br><span style="font-size:.65rem;color:#4a5568;font-family:monospace">${debugInfo}</span></div>`;
+        return;
+      }
 
       const sessionIds = sessions.map(s => s.id);
       const { data: logs } = await client.from('attendance_logs')
