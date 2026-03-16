@@ -243,7 +243,7 @@
               <div style="display:flex;align-items:center;gap:.6rem">
                 <span style="width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);flex-shrink:0"></span>
                 <span style="color:var(--red)">Disconnected</span>
-                <span style="color:var(--muted)">— No heartbeat for 15s</span>
+                <span style="color:var(--muted)">— No signal for 60s</span>
               </div>
             </div>
           </div>
@@ -517,19 +517,30 @@
       const name = payload.name ?? 'Unknown';
       if (!sid) return;
       if (!students[sid]) {
+        // Brand new student
         const entry = {name, online:true, lastLatency:null, joinTime:new Date(), leaveTime:null, latencies:[], heartbeats:0, disconnectTimer:null};
         students[sid] = entry;
         historyEntries.push(entry);
-      } else if (!students[sid].online && students[sid].leaveTime !== null) {
-        students[sid].online = true;
-        students[sid].lastLatency = null;
-        students[sid].leaveTime = null;
+      } else {
+        // Existing student rejoining — always record leave + create rejoin entry
+        const leaveNow = new Date();
         clearTimeout(students[sid].disconnectTimer);
+
+        // Mark previous entry (or active rejoin entry) as left
+        const prevEntry = students[sid].rejoinEntry ?? students[sid];
+        if (!prevEntry.leaveTime) prevEntry.leaveTime = leaveNow;
+        prevEntry.online = false;
+
+        // Also mark the base student offline
+        if (!students[sid].leaveTime) students[sid].leaveTime = leaveNow;
+        students[sid].online = false;
+
+        // Create new rejoin entry
         const rejoinEntry = {name: name+' (rejoined)', online:true, lastLatency:null, joinTime:new Date(), leaveTime:null, latencies:[], heartbeats:0, disconnectTimer:null, isRejoin:true, parentKey:sid};
         students[sid].rejoinEntry = rejoinEntry;
-        historyEntries.push(rejoinEntry);
-      } else {
         students[sid].online = true;
+        students[sid].lastLatency = null;
+        historyEntries.push(rejoinEntry);
       }
       renderGrid(); renderHistory();
     });
@@ -567,7 +578,7 @@
         const re = students[sid].rejoinEntry;
         if (re && re.online) { re.online = false; re.lastLatency = null; if (!re.leaveTime) re.leaveTime = leaveNow; }
         renderGrid(); renderHistory();
-      }, 20000);
+      }, 60000); // 60s timeout — accounts for browser tab throttling
       renderGrid(); renderHistory();
     });
 
@@ -626,7 +637,10 @@
         const {error} = await client.from('attendance_logs').insert(
           records.map(r=>({session_id:sessionId, student_id:r.studentId, session_summary:r.session_summary}))
         );
-        if (error) throw new Error('DB insert failed: ' + error.message);
+        if (error) {
+          console.error('attendance_logs insert error:', error);
+          throw new Error('Save failed: ' + error.message + ' — Make sure the attendance_logs table exists in Supabase.');
+        }
       }
 
       // Only broadcast session ended AFTER successful DB save

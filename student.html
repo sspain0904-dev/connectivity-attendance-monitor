@@ -353,7 +353,14 @@
 
   // ── Heartbeat ──────────────────────────────────────────────
   function startHeartbeat() {
-    heartbeatTimer = setInterval(async () => {
+    // Use a Web Worker for the timer — immune to browser tab throttling
+    const workerBlob = new Blob([`
+      setInterval(() => { self.postMessage('tick'); }, 10000);
+    `], { type: 'application/javascript' });
+    const workerUrl = URL.createObjectURL(workerBlob);
+    const worker = new Worker(workerUrl);
+
+    worker.onmessage = async () => {
       const ms = await measureLatency();
       updateLatencyDisplay(ms);
 
@@ -368,17 +375,19 @@
       });
 
       heartbeatCount++;
-      // Always log — show every latency reading in activity log
       addLog(
         ms === null ? 'error' : ms > 200 ? 'warn' : 'info',
         ms === null ? 'Connection timeout!' : `Latency — ${ms}ms`
       );
-    }, 10000);
+    };
+
+    // Store worker so we can terminate it on logout/leave
+    heartbeatTimer = worker;
   }
 
   // ── Logout ─────────────────────────────────────────────────
   async function handleLogout() {
-    clearInterval(heartbeatTimer);
+    if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; }
     clearInterval(uptimeTimer);
     if (channel) {
       await channel.untrack();
@@ -391,7 +400,7 @@
 
   // ── Session ended ───────────────────────────────────────────
   function showSessionEnded() {
-    clearInterval(heartbeatTimer);
+    if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; }
     clearInterval(uptimeTimer);
     setStatus('disconnected');
     addLog('error', 'Session ended by teacher');
@@ -500,7 +509,7 @@
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         setStatus('connecting');
         addLog('warn', `Reconnecting in ${reconnectDelay/1000}s...`);
-        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        if (heartbeatTimer) { if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; } }
         setTimeout(() => {
           reconnectDelay = Math.min(reconnectDelay * 2, 30000);
           setupChannel();
