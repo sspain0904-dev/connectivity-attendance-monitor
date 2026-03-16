@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Teacher Dashboard | Connectivity and Attendance Monitor</title>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg:      #020408;
@@ -21,15 +21,15 @@
       --purple:  #7c3aed;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'JetBrains Mono',monospace; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
 
     /* TOPBAR */
     .topbar { display:flex; align-items:center; justify-content:space-between; padding:.875rem 2rem; background:rgba(10,15,26,.95); border-bottom:1px solid var(--border); backdrop-filter:blur(12px); position:sticky; top:0; z-index:50; }
     .topbar-brand { display:flex; align-items:center; gap:.875rem; }
     .brand-icon { width:36px; height:36px; background:linear-gradient(135deg,#7c3aed,#3b82f6); border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 20px rgba(124,58,237,.4); }
     .brand-icon svg { width:18px; height:18px; color:#fff; }
-    .brand-title { font-family:'Syne',sans-serif; font-size:.9rem; font-weight:800; color:#fff; }
-    .brand-sub { font-size:.65rem; color:var(--muted); margin-top:1px; }
+    .brand-title { font-family:'Inter',sans-serif; font-size:1rem; font-weight:800; color:#fff; }
+    .brand-sub { font-size:.75rem; color:var(--muted); margin-top:1px; }
     .topbar-right { display:flex; align-items:center; gap:1rem; }
     .session-pill { display:flex; align-items:center; gap:.5rem; padding:.35rem .875rem; border-radius:99px; border:1px solid; font-size:.7rem; font-weight:600; transition:all .3s; }
     .session-pill.inactive { border-color:var(--border2); color:var(--muted); }
@@ -37,8 +37,8 @@
     .session-pill .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
     .session-pill.active .dot { animation:blink 1.5s infinite; }
     @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
-    .timer-display { font-size:.8rem; color:var(--muted); min-width:48px; text-align:center; }
-    .btn { padding:.5rem 1.125rem; border-radius:8px; border:none; font-size:.75rem; font-weight:700; cursor:pointer; font-family:'JetBrains Mono',monospace; display:flex; align-items:center; gap:.4rem; transition:all .15s; white-space:nowrap; }
+    .timer-display { font-size:.85rem; color:var(--muted); min-width:48px; text-align:center; }
+    .btn { padding:.5rem 1.125rem; border-radius:8px; border:none; font-size:.75rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; display:flex; align-items:center; gap:.4rem; transition:all .15s; white-space:nowrap; }
     .btn:disabled { opacity:.35; cursor:not-allowed; }
     .btn-ghost  { background:transparent; border:1px solid var(--border2); color:var(--muted); }
     .btn-ghost:hover:not(:disabled) { border-color:#4a5568; color:var(--text); }
@@ -55,22 +55,22 @@
 
     /* SESSION CARD */
     .session-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.25rem; }
-    .card-label { font-size:.6rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.15em; margin-bottom:1rem; }
-    select { width:100%; background:var(--bg); border:1px solid var(--border2); border-radius:8px; padding:.6rem .875rem; color:var(--text); font-size:.8rem; font-family:'JetBrains Mono',monospace; outline:none; transition:border-color .15s; margin-bottom:1rem; }
+    .card-label { font-size:.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.15em; margin-bottom:1rem; }
+    select { width:100%; background:var(--bg); border:1px solid var(--border2); border-radius:8px; padding:.6rem .875rem; color:var(--text); font-size:.8rem; font-family:'Inter',sans-serif; outline:none; transition:border-color .15s; margin-bottom:1rem; }
     select:focus { border-color:var(--purple); }
     select option { background:var(--surface); }
     .passcode-box { background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:1rem 1.25rem; text-align:center; margin-bottom:1rem; display:none; }
-    .passcode-lbl  { font-size:.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.5rem; }
-    .passcode-code { font-size:2.25rem; font-weight:700; letter-spacing:.5em; color:var(--purple); font-family:'Syne',sans-serif; }
-    .passcode-hint { font-size:.6rem; color:var(--muted); margin-top:.35rem; }
+    .passcode-lbl  { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.5rem; }
+    .passcode-code { font-size:2.5rem; font-weight:800; letter-spacing:.5em; color:var(--purple); font-family:'Inter',sans-serif; }
+    .passcode-hint { font-size:.72rem; color:var(--muted); margin-top:.35rem; }
     .btn-row  { display:flex; gap:.75rem; }
     .btn-full { flex:1; justify-content:center; }
-    .status-msg { font-size:.72rem; text-align:center; margin-top:.75rem; min-height:1rem; }
+    .status-msg { font-size:.8rem; text-align:center; margin-top:.75rem; min-height:1rem; }
 
     /* TABS */
     .tabs-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; flex:1; display:flex; flex-direction:column; }
     .tab-nav { display:flex; border-bottom:1px solid var(--border); background:rgba(0,0,0,.2); flex-shrink:0; }
-    .tab-btn { flex:1; padding:.75rem; background:none; border:none; font-family:'JetBrains Mono',monospace; font-size:.72rem; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; text-transform:uppercase; letter-spacing:.08em; border-bottom:2px solid transparent; margin-bottom:-1px; }
+    .tab-btn { flex:1; padding:.75rem; background:none; border:none; font-family:'Inter',sans-serif; font-size:.72rem; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; text-transform:uppercase; letter-spacing:.08em; border-bottom:2px solid transparent; margin-bottom:-1px; }
     .tab-btn:hover { color:var(--text); }
     .tab-btn.active { color:var(--blue); border-bottom-color:var(--blue); }
     .tab-pane { display:none; flex:1; overflow-y:auto; }
@@ -80,38 +80,38 @@
     .control-pane { padding:1.25rem; }
 
     /* HISTORY TAB */
-    .history-empty { display:flex; align-items:center; justify-content:center; flex:1; color:var(--muted); font-size:.75rem; padding:2rem; }
+    .history-empty { display:flex; align-items:center; justify-content:center; flex:1; color:var(--muted); font-size:.85rem; padding:2rem; }
     .history-entry { display:grid; grid-template-columns:130px 1fr auto; align-items:center; gap:1rem; padding:.875rem 1.25rem; border-bottom:1px solid var(--border); }
     .history-entry:hover { background:rgba(255,255,255,.02); }
-    .he-name { font-size:.78rem; color:var(--text); font-weight:600; }
-    .he-time { font-size:.62rem; color:var(--muted); margin-top:.25rem; line-height:1.6; }
+    .he-name { font-size:.88rem; color:var(--text); font-weight:600; }
+    .he-time { font-size:.74rem; color:var(--muted); margin-top:.25rem; line-height:1.6; }
     .he-pings { display:flex; flex-wrap:wrap; gap:.2rem; }
-    .ping-chip { display:inline-block; padding:.15rem .45rem; border-radius:99px; font-size:.62rem; font-weight:700; border:1px solid; }
+    .ping-chip { display:inline-block; padding:.15rem .45rem; border-radius:99px; font-size:.72rem; font-weight:700; border:1px solid; }
     .ping-green  { color:var(--green);  border-color:rgba(0,255,136,.3);  background:rgba(0,255,136,.08); }
     .ping-yellow { color:var(--yellow); border-color:rgba(255,204,0,.3);  background:rgba(255,204,0,.08); }
     .ping-red    { color:var(--red);    border-color:rgba(255,59,92,.3);  background:rgba(255,59,92,.08); }
-    .he-avg-val { font-size:.95rem; font-weight:700; text-align:right; }
-    .he-avg-lbl { font-size:.6rem; color:var(--muted); text-align:right; }
+    .he-avg-val { font-size:1.1rem; font-weight:700; text-align:right; }
+    .he-avg-lbl { font-size:.72rem; color:var(--muted); text-align:right; }
 
     /* SUMMARY TAB */
     .summary-pane { padding:1.25rem; }
     .summary-empty { color:var(--muted); font-size:.75rem; text-align:center; padding:2rem; flex:1; display:flex; align-items:center; justify-content:center; }
     .summary-header { display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin-bottom:1.25rem; }
     .summary-stat { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:.875rem; text-align:center; }
-    .summary-stat-val { font-size:1.5rem; font-weight:700; font-family:'Syne',sans-serif; }
-    .summary-stat-lbl { font-size:.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-top:.2rem; }
-    .summary-table { width:100%; border-collapse:collapse; font-size:.75rem; }
-    .summary-table th { text-align:left; padding:.5rem .75rem; color:var(--muted); font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--border); }
+    .summary-stat-val { font-size:1.5rem; font-weight:700; font-family:'Inter',sans-serif; }
+    .summary-stat-lbl { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-top:.2rem; }
+    .summary-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    .summary-table th { text-align:left; padding:.5rem .75rem; color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--border); }
     .summary-table td { padding:.625rem .75rem; border-bottom:1px solid rgba(17,24,39,.8); }
     .summary-table tr:last-child td { border-bottom:none; }
 
     /* RIGHT — LIVE GRID */
     .right { border-left:1px solid var(--border); display:flex; flex-direction:column; }
     .right-header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
-    .right-title { font-size:.65rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; }
-    .online-badge { font-size:.65rem; color:var(--green); background:rgba(0,255,136,.08); border:1px solid rgba(0,255,136,.2); padding:.2rem .6rem; border-radius:99px; }
+    .right-title { font-size:.76rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; }
+    .online-badge { font-size:.76rem; color:var(--green); background:rgba(0,255,136,.08); border:1px solid rgba(0,255,136,.2); padding:.2rem .6rem; border-radius:99px; }
     .live-grid { flex:1; overflow-y:auto; padding:.875rem; display:grid; grid-template-columns:1fr 1fr; gap:.625rem; align-content:start; }
-    .grid-empty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; height:200px; color:var(--muted); font-size:.72rem; gap:.5rem; }
+    .grid-empty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; height:200px; color:var(--muted); font-size:.82rem; gap:.5rem; }
 
     /* STUDENT CARD */
     .student-card { background:var(--bg); border-radius:12px; padding:.875rem; border:1px solid var(--border); position:relative; overflow:hidden; transition:border-color .5s, box-shadow .5s; }
@@ -124,16 +124,16 @@
     .student-card.s-red::before    { background:var(--red);    box-shadow:0 0 10px var(--red); }
     .student-card.s-offline { border-color:var(--border); opacity:.5; }
     .student-card.s-offline::before { background:var(--muted); }
-    .sc-name { font-size:.75rem; font-weight:700; color:var(--text); margin-bottom:.5rem; padding-left:.35rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sc-name { font-size:.85rem; font-weight:700; color:var(--text); margin-bottom:.5rem; padding-left:.35rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sc-latency-wrap { display:flex; align-items:baseline; gap:.3rem; margin-bottom:.5rem; padding-left:.35rem; }
-    .sc-latency-val  { font-size:1.875rem; font-weight:800; font-family:'Syne',sans-serif; line-height:1; transition:color .5s; }
-    .sc-latency-unit { font-size:.65rem; color:var(--muted); }
+    .sc-latency-val  { font-size:2rem; font-weight:800; font-family:'Inter',sans-serif; line-height:1; transition:color .5s; }
+    .sc-latency-unit { font-size:.75rem; color:var(--muted); }
     .sc-indicator { width:100%; height:3px; border-radius:99px; margin-bottom:.5rem; transition:background .5s; }
     .ind-green   { background:linear-gradient(90deg,var(--green),transparent); }
     .ind-yellow  { background:linear-gradient(90deg,var(--yellow),transparent); }
     .ind-red     { background:linear-gradient(90deg,var(--red),transparent); }
     .ind-offline { background:var(--border); }
-    .sc-meta { display:flex; align-items:center; justify-content:space-between; font-size:.6rem; color:var(--muted); padding-left:.35rem; }
+    .sc-meta { display:flex; align-items:center; justify-content:space-between; font-size:.72rem; color:var(--muted); padding-left:.35rem; }
 
     ::-webkit-scrollbar { width:4px; }
     ::-webkit-scrollbar-track { background:transparent; }
@@ -143,13 +143,13 @@
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.8); backdrop-filter:blur(6px); z-index:100; align-items:center; justify-content:center; padding:1rem; }
     .modal-overlay.show { display:flex; }
     .modal-box { background:var(--surface); border:1px solid var(--border2); border-radius:16px; padding:1.75rem; width:100%; max-width:380px; box-shadow:0 25px 60px rgba(0,0,0,.7); }
-    .modal-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:#fff; margin-bottom:.25rem; }
-    .modal-sub   { font-size:.7rem; color:var(--muted); margin-bottom:1.25rem; }
+    .modal-title { font-family:'Inter',sans-serif; font-size:1.1rem; font-weight:700; color:#fff; margin-bottom:.25rem; }
+    .modal-sub   { font-size:.8rem; color:var(--muted); margin-bottom:1.25rem; }
     .modal-field { margin-bottom:1rem; }
-    .modal-label { display:block; font-size:.6rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-bottom:.4rem; }
-    .modal-input { width:100%; background:var(--bg); border:1px solid var(--border2); border-radius:8px; padding:.65rem .875rem; color:var(--text); font-size:.8rem; font-family:'JetBrains Mono',monospace; outline:none; transition:border-color .15s; }
+    .modal-label { display:block; font-size:.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-bottom:.4rem; }
+    .modal-input { width:100%; background:var(--bg); border:1px solid var(--border2); border-radius:8px; padding:.65rem .875rem; color:var(--text); font-size:.8rem; font-family:'Inter',sans-serif; outline:none; transition:border-color .15s; }
     .modal-input:focus { border-color:var(--purple); }
-    .modal-error { font-size:.7rem; color:var(--red); margin-bottom:.75rem; display:none; }
+    .modal-error { font-size:.8rem; color:var(--red); margin-bottom:.75rem; display:none; }
     .modal-btn-row { display:flex; gap:.75rem; margin-top:1.25rem; }
     .btn-purple { background:rgba(124,58,237,.15); border:1px solid rgba(124,58,237,.3); color:#a78bfa; }
     .btn-purple:hover:not(:disabled) { background:rgba(124,58,237,.25); }
@@ -175,6 +175,7 @@
     <div class="session-pill inactive" id="session-pill">
       <span class="dot"></span><span id="pill-text">No Session</span>
     </div>
+    <button class="btn btn-ghost" style="font-size:.7rem;padding:.35rem .75rem" onclick="openAllHistory()">📋 All History</button>
     <button class="btn btn-ghost" onclick="handleLogout()">Logout</button>
   </div>
 </div>
@@ -191,6 +192,10 @@
         <button class="btn btn-purple" style="padding:.25rem .75rem;font-size:.65rem" onclick="openAddClass()">+ Add Class</button>
       </div>
       <select id="class-select"><option value="">— Select a class —</option></select>
+      <div style="display:flex;gap:.5rem;margin-top:-.5rem;margin-bottom:1rem">
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:.72rem;padding:.35rem" onclick="openRenameClass()">✏ Rename</button>
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:.72rem;padding:.35rem;color:var(--red);border-color:rgba(255,59,92,.3)" onclick="openDeleteClass()">✕ Delete</button>
+      </div>
       <div class="passcode-box" id="passcode-box">
         <div class="passcode-lbl">Session Passcode — share with students</div>
         <div class="passcode-code" id="passcode-code">——</div>
@@ -597,6 +602,7 @@
         }
 
         const session_summary = {
+          name:         d.name,
           total_mins:   Math.round(totalMin * 10) / 10,
           avg_latency:  avg,
           status,
@@ -746,6 +752,256 @@
   }
 
   init();
+
+  // ── Rename Class ──────────────────────────────────────────
+  function openRenameClass() {
+    const sel = document.getElementById('class-select');
+    if (!sel.value) { setStatus('Select a class first.', 'var(--yellow)'); return; }
+    const currentName = sel.options[sel.selectedIndex].text;
+    document.getElementById('rename-class-sub').textContent = 'Renaming: ' + currentName;
+    document.getElementById('rename-class-input').value = currentName;
+    document.getElementById('rename-modal-error').style.display = 'none';
+    document.getElementById('rename-class-btn').disabled = false;
+    document.getElementById('rename-class-btn').textContent = 'Save';
+    document.getElementById('rename-class-modal').classList.add('show');
+    setTimeout(() => document.getElementById('rename-class-input').focus(), 100);
+  }
+
+  function closeRenameClass() {
+    document.getElementById('rename-class-modal').classList.remove('show');
+  }
+
+  async function submitRenameClass() {
+    const sel = document.getElementById('class-select');
+    const classId = sel.value;
+    const name = document.getElementById('rename-class-input').value.trim();
+    const errEl = document.getElementById('rename-modal-error');
+    errEl.style.display = 'none';
+
+    if (!name) { errEl.textContent = 'Please enter a name.'; errEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('rename-class-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    try {
+      const { error } = await client.from('classes').update({ course_code: name }).eq('id', classId);
+      if (error) throw new Error(error.message);
+      sel.options[sel.selectedIndex].text = name;
+      closeRenameClass();
+      setStatus(`Class renamed to "${name}"`, 'var(--green)');
+    } catch(err) {
+      errEl.textContent = err.message; errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
+  document.getElementById('rename-class-modal').addEventListener('click', function(e) { if (e.target===this) closeRenameClass(); });
+
+  // ── Delete Class ──────────────────────────────────────────
+  function openDeleteClass() {
+    const sel = document.getElementById('class-select');
+    if (!sel.value) { setStatus('Select a class first.', 'var(--yellow)'); return; }
+    const currentName = sel.options[sel.selectedIndex].text;
+    document.getElementById('delete-class-sub').textContent = `Delete "${currentName}"? This cannot be undone and will also remove all sessions for this class.`;
+    document.getElementById('delete-modal-error').style.display = 'none';
+    document.getElementById('delete-class-btn').disabled = false;
+    document.getElementById('delete-class-btn').textContent = 'Delete';
+    document.getElementById('delete-class-modal').classList.add('show');
+  }
+
+  function closeDeleteClass() {
+    document.getElementById('delete-class-modal').classList.remove('show');
+  }
+
+  async function submitDeleteClass() {
+    const sel = document.getElementById('class-select');
+    const classId = sel.value;
+    const className = sel.options[sel.selectedIndex].text;
+    const errEl = document.getElementById('delete-modal-error');
+    errEl.style.display = 'none';
+
+    const btn = document.getElementById('delete-class-btn');
+    btn.disabled = true; btn.textContent = 'Deleting...';
+
+    try {
+      const { error } = await client.from('classes').delete().eq('id', classId);
+      if (error) throw new Error(error.message);
+      sel.remove(sel.selectedIndex);
+      if (sel.options.length > 0) sel.selectedIndex = 0;
+      closeDeleteClass();
+      setStatus(`Class "${className}" deleted.`, 'var(--red)');
+    } catch(err) {
+      errEl.textContent = err.message; errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Delete';
+    }
+  }
+
+  document.getElementById('delete-class-modal').addEventListener('click', function(e) { if (e.target===this) closeDeleteClass(); });
+
+  // ── All History Modal ──────────────────────────────────────
+  async function openAllHistory() {
+    const modal = document.getElementById('all-history-modal');
+    const body  = document.getElementById('all-history-body');
+    modal.style.display = 'flex';
+    body.innerHTML = '<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:2rem">Loading...</div>';
+
+    try {
+      const { data: classes } = await client.from('classes').select('id,course_code').eq('teacher_id', currentUser.id);
+      if (!classes?.length) { body.innerHTML = '<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:2rem">No sessions found.</div>'; return; }
+
+      const classIds = classes.map(c => c.id);
+      const classMap = Object.fromEntries(classes.map(c => [c.id, c.course_code]));
+
+      const { data: sessions } = await client
+        .from('sessions').select('id,class_id,passcode,created_at,is_active')
+        .in('class_id', classIds).eq('is_active', false)
+        .order('created_at', { ascending: false });
+
+      if (!sessions?.length) { body.innerHTML = '<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:2rem">No completed sessions found.</div>'; return; }
+
+      const sessionIds = sessions.map(s => s.id);
+      const { data: logs } = await client.from('attendance_logs')
+        .select('session_id,student_id,session_summary').in('session_id', sessionIds);
+
+      const logsBySession = {};
+      (logs || []).forEach(l => {
+        if (!logsBySession[l.session_id]) logsBySession[l.session_id] = [];
+        logsBySession[l.session_id].push(l);
+      });
+
+      body.innerHTML = '';
+      sessions.forEach((sess, i) => {
+        const className = classMap[sess.class_id] ?? 'Unknown Class';
+        const date = new Date(sess.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const time = new Date(sess.created_at).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+        const sessLogs = logsBySession[sess.id] || [];
+        const uid = 'sess-' + i;
+
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid var(--border2);border-radius:8px;margin-bottom:.75rem;overflow:hidden';
+
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:var(--bg)';
+        hdr.innerHTML = `
+          <div style="display:flex;align-items:center;gap:.75rem">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
+            <div>
+              <span style="font-weight:600;font-size:.8rem;color:var(--text)">${className}</span>
+              <span style="color:var(--muted);font-size:.7rem;margin-left:.5rem">${date} · ${time}</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem">
+            <span style="font-size:.65rem;color:var(--muted);background:var(--surface);padding:.2rem .5rem;border-radius:4px;font-family:'Inter',sans-serif">${sess.passcode}</span>
+            <span style="font-size:.7rem;color:var(--muted)">${sessLogs.length} student${sessLogs.length!==1?'s':''}</span>
+            <span id="${uid}-arrow" style="color:var(--muted);font-size:.75rem;transition:transform .2s">▼</span>
+          </div>`;
+
+        const content = document.createElement('div');
+        content.id = uid + '-content';
+        content.style.cssText = 'display:none;border-top:1px solid var(--border2)';
+
+        if (!sessLogs.length) {
+          content.innerHTML = '<div style="padding:.75rem 1rem;color:var(--muted);font-size:.72rem">No student records for this session.</div>';
+        } else {
+          let rows = `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:.5rem;padding:.6rem 1rem;background:var(--surface);font-size:.65rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">
+            <span>Student</span><span>Avg Ping</span><span>Joined</span><span>Left</span><span>Duration</span><span>Net Status</span></div>`;
+          sessLogs.forEach((log, li) => {
+            const s = log.session_summary || {};
+            const avg = s.avg_latency ?? null;
+            const col = avg === null ? 'var(--muted)' : avg < 200 ? 'var(--green)' : avg < 500 ? 'var(--yellow)' : 'var(--red)';
+            const netStatus = avg === null ? '—' : avg < 200 ? 'Good' : avg < 500 ? 'Slow' : 'Poor';
+            const netCol = avg === null ? 'var(--muted)' : avg < 200 ? 'var(--green)' : avg < 500 ? 'var(--yellow)' : 'var(--red)';
+            const dur = (() => {
+              const totalSec = Math.round((s.total_mins ?? 0) * 60);
+              if (totalSec < 60) return totalSec + 'sec';
+              const h = Math.floor(totalSec/3600), m = Math.floor((totalSec%3600)/60), sc = totalSec%60;
+              if (h > 0) return h+'h '+m+'min '+sc+'sec';
+              return sc > 0 ? m+'min '+sc+'sec' : m+'min';
+            })();
+            rows += `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:.5rem;padding:.55rem 1rem;font-size:.72rem;background:${li%2===0?'transparent':'rgba(255,255,255,.02)'};align-items:center">
+              <span style="color:var(--text);font-weight:500">${s.name ?? 'Unknown'}</span>
+              <span style="color:${col};font-weight:600">${avg !== null ? avg+'ms' : '—'}</span>
+              <span style="color:var(--muted)">${s.join_time ?? '—'}</span>
+              <span style="color:var(--muted)">${s.leave_time ?? '—'}</span>
+              <span style="color:var(--text)">${dur}</span>
+              <span style="color:${netCol};font-weight:600">${netStatus}</span>
+            </div>`;
+          });
+          content.innerHTML = rows;
+        }
+
+        hdr.addEventListener('click', () => {
+          const isOpen = content.style.display !== 'none';
+          content.style.display = isOpen ? 'none' : 'block';
+          document.getElementById(uid+'-arrow').style.transform = isOpen ? '' : 'rotate(180deg)';
+        });
+
+        card.appendChild(hdr);
+        card.appendChild(content);
+        body.appendChild(card);
+      });
+    } catch(err) {
+      body.innerHTML = '<div style="color:var(--red);font-size:.75rem;text-align:center;padding:2rem">Failed to load: ' + err.message + '</div>';
+    }
+  }
+
+  function closeAllHistory() {
+    document.getElementById('all-history-modal').style.display = 'none';
+  }
+
+  document.getElementById('all-history-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeAllHistory();
+  });
+
 </script>
+
+<!-- RENAME CLASS MODAL -->
+<div class="modal-overlay" id="rename-class-modal">
+  <div class="modal-box">
+    <div class="modal-title">Rename Class</div>
+    <div class="modal-sub" id="rename-class-sub">Renaming: </div>
+    <div class="modal-field">
+      <label class="modal-label">New Class Name</label>
+      <input class="modal-input" id="rename-class-input" type="text" placeholder="e.g. STEM 12-CSIT A" maxlength="60" />
+    </div>
+    <div class="modal-error" id="rename-modal-error"></div>
+    <div class="modal-btn-row">
+      <button class="btn btn-purple btn-full" style="justify-content:center" id="rename-class-btn" onclick="submitRenameClass()">Save</button>
+      <button class="btn btn-ghost btn-full" style="justify-content:center" onclick="closeRenameClass()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CLASS MODAL -->
+<div class="modal-overlay" id="delete-class-modal">
+  <div class="modal-box">
+    <div class="modal-title" style="color:var(--red)">Delete Class</div>
+    <div class="modal-sub" id="delete-class-sub">Are you sure you want to delete this class? This cannot be undone.</div>
+    <div class="modal-error" id="delete-modal-error"></div>
+    <div class="modal-btn-row" style="margin-top:1.25rem">
+      <button class="btn btn-full" style="justify-content:center;background:rgba(255,59,92,.15);border:1px solid rgba(255,59,92,.3);color:var(--red)" id="delete-class-btn" onclick="submitDeleteClass()">Delete</button>
+      <button class="btn btn-ghost btn-full" style="justify-content:center" onclick="closeDeleteClass()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALL HISTORY MODAL -->
+<div id="all-history-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:min(860px,95vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+    <!-- Header -->
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="font-weight:700;font-size:.95rem;color:var(--text)">All Sessions History</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">All past sessions — click a session to expand</div>
+      </div>
+      <button onclick="closeAllHistory()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:.25rem .5rem;border-radius:6px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+    </div>
+    <!-- Body -->
+    <div id="all-history-body" style="overflow-y:auto;padding:1rem 1.5rem;flex:1">
+      <div style="color:var(--muted);font-size:.75rem;text-align:center;padding:2rem">Loading...</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
