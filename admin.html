@@ -487,7 +487,8 @@
 
       const { data:sess, error } = await client.from('sessions')
         .insert({class_id:classId,is_active:true,passcode}).select().single();
-      if (error) throw new Error(error.message);
+      console.log('session insert result:', sess, 'error:', error);
+      if (error) throw new Error('Session insert failed: ' + error.message + ' | code: ' + error.code);
 
       sessionId = sess.id; sessionStart = new Date();
       students = {}; historyEntries = [];
