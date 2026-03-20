@@ -1,6 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
+<script>
+  // Block tablets and iPads
+  (function() {
+    const ua = navigator.userAgent.toLowerCase();
+    const isTablet = /ipad/.test(ua) ||
+      (/android/.test(ua) && !/mobile/.test(ua)) ||
+      (/tablet/.test(ua)) ||
+      (navigator.maxTouchPoints > 1 && /macintosh/.test(ua)); // iPad with desktop mode
+
+    if (isTablet) {
+      document.documentElement.innerHTML = `
+        <html><head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            * { margin:0; padding:0; box-sizing:border-box; }
+            body {
+              font-family: 'Segoe UI', sans-serif;
+              background: #020408;
+              color: #e2e8f0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              text-align: center;
+              padding: 2rem;
+            }
+            .wrap { max-width: 360px; }
+            .icon { font-size: 3rem; margin-bottom: 1.5rem; }
+            h1 { font-size: 1.3rem; font-weight: 700; margin-bottom: .75rem; color: #fff; }
+            p { font-size: .9rem; color: #4a5568; line-height: 1.6; }
+            .badge {
+              display: inline-block;
+              margin-top: 1.5rem;
+              padding: .4rem 1rem;
+              border: 1px solid #1e2d40;
+              border-radius: 99px;
+              font-size: .75rem;
+              color: #4a5568;
+            }
+          </style>
+        </head><body>
+          <div class="wrap">
+            <div class="icon">💻</div>
+            <h1>Laptop Only</h1>
+            <p>Internet Monitor is designed for laptop and desktop computers only. Please open this website on a laptop or PC.</p>
+            <div class="badge">Not supported on tablets or iPads</div>
+          </div>
+        </body></html>`;
+    }
+  })();
+</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Teacher Dashboard | Connectivity and Attendance Monitor</title>
