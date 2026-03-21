@@ -543,16 +543,25 @@
         setStatus('connected');
         addLog('info', 'Connected to session channel');
 
-        await channel.send({
-          type: 'broadcast', event: 'student_join',
-          payload: {
-            student_id: currentUser.id,
-            name:       currentProfile.full_name,
-            joined_at:  new Date().toISOString(),
-          }
-        });
+        // Only send student_join if this is a fresh join (not a page refresh of same session)
+        const joinKey = _tid + 'joined_session';
+        const alreadyJoined = sessionStorage.getItem(joinKey);
 
-        addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
+        if (!alreadyJoined) {
+          sessionStorage.setItem(joinKey, Date.now().toString());
+          await channel.send({
+            type: 'broadcast', event: 'student_join',
+            payload: {
+              student_id: currentUser.id,
+              name:       currentProfile.full_name,
+              joined_at:  new Date().toISOString(),
+            }
+          });
+          addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
+        } else {
+          addLog('info', 'Resumed session - ' + new Date().toLocaleTimeString());
+        }
+
         if (!heartbeatTimer) startHeartbeat();
         if (!uptimeTimer) startUptime();
 
