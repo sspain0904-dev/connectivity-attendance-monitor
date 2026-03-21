@@ -283,7 +283,7 @@
   <div class="legend-item"><span class="legend-dot ld-green"></span><span style="color:var(--green)">Good</span><span style="color:var(--muted)"> — Less than 200ms</span></div>
   <div class="legend-item"><span class="legend-dot ld-yellow"></span><span style="color:var(--yellow)">Slow</span><span style="color:var(--muted)"> — Higher than 200ms</span></div>
   <div class="legend-item"><span class="legend-dot ld-red"></span><span style="color:var(--red)">Timeout</span><span style="color:var(--muted)"> — No response</span></div>
-  <div class="legend-item"><span class="legend-dot ld-gray"></span><span style="color:var(--muted)">Disconnected</span><span style="color:var(--muted)"> — 15s no heartbeat</span></div>
+  <div class="legend-item"><span class="legend-dot ld-gray"></span><span style="color:var(--muted)">Disconnected</span><span style="color:var(--muted)"> — No signal for 60s</span></div>
 </div>
 
 <!-- ACTIVITY LOG -->
@@ -527,14 +527,11 @@
     await setupChannel();
   }
 
-  let reconnectDelay = 3000;
-
   async function setupChannel() {
     const channelName = 'classroom-' + activeSessionId;
 
     try { if (channel) { client.removeChannel(channel); channel = null; } } catch(e) {}
 
-    // No presence config — use pure broadcast so any number of students can join
     channel = client.channel(channelName);
 
     channel.on('broadcast', { event: 'session_ended' }, () => {
@@ -543,7 +540,6 @@
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        reconnectDelay = 3000;
         setStatus('connected');
         addLog('info', 'Connected to session channel');
 
@@ -559,14 +555,19 @@
         addLog('presence', 'Joined session - ' + new Date().toLocaleTimeString());
         if (!heartbeatTimer) startHeartbeat();
         if (!uptimeTimer) startUptime();
+
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        setStatus('connecting');
-        addLog('warn', `Reconnecting in ${reconnectDelay/1000}s...`);
-        if (heartbeatTimer) { if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; } }
-        setTimeout(() => {
-          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-          setupChannel();
-        }, reconnectDelay);
+        // No auto-reconnect — student must rejoin manually
+        setStatus('disconnected');
+        if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        if (uptimeTimer) { clearInterval(uptimeTimer); uptimeTimer = null; }
+        addLog('error', 'Connection lost. Please rejoin the session using the passcode.');
+
+        // Show rejoin banner
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#7c3aed;color:#fff;text-align:center;padding:.75rem;font-size:.85rem;font-weight:600;z-index:999';
+        banner.innerHTML = '⚠ Connection lost — <a href="join.html" style="color:#fff;text-decoration:underline">Click here to rejoin</a>';
+        document.body.prepend(banner);
       }
     });
   }
