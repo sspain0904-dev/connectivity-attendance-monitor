@@ -598,18 +598,6 @@
       renderGrid(); renderHistory();
     });
 
-    channel.on('broadcast', {event:'student_leave'}, ({payload}) => {
-      const sid = payload.student_id;
-      if (!sid || !students[sid]) return;
-      students[sid].online = false;
-      students[sid].leaveTime = new Date();
-      if (students[sid].rejoinEntry?.online) {
-        students[sid].rejoinEntry.online = false;
-        students[sid].rejoinEntry.leaveTime = new Date();
-      }
-      renderGrid(); renderHistory();
-    });
-
     channel.on('broadcast', {event:'heartbeat'}, ({payload}) => {
       const sid = payload.student_id;
       if (!students[sid]) return;

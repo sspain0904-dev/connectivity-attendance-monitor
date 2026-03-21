@@ -572,16 +572,11 @@
     });
   }
 
-      // 9. Clean up on page close/refresh
+      // 9. Clean up on page close/refresh — no leave broadcast (unreliable)
+    // Teacher detects disconnect via 60s heartbeat timeout instead
     window.addEventListener('beforeunload', () => {
-      clearInterval(heartbeatTimer);
+      if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; }
       clearInterval(uptimeTimer);
-      if (channel && currentUser) {
-        channel.send({
-          type: 'broadcast', event: 'student_leave',
-          payload: { student_id: currentUser.id, name: currentProfile?.full_name }
-        });
-      }
     });
 
     // 10. Poll every 15s to check if session is still active
