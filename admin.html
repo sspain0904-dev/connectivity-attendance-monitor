@@ -575,20 +575,16 @@
         students[sid] = entry;
         historyEntries.push(entry);
       } else {
-        // Existing student rejoining — always record leave + create rejoin entry
+        // Existing student rejoining — record leave + create rejoin entry
         const leaveNow = new Date();
         clearTimeout(students[sid].disconnectTimer);
 
-        // Mark previous entry (or active rejoin entry) as left
         const prevEntry = students[sid].rejoinEntry ?? students[sid];
         if (!prevEntry.leaveTime) prevEntry.leaveTime = leaveNow;
         prevEntry.online = false;
-
-        // Also mark the base student offline
         if (!students[sid].leaveTime) students[sid].leaveTime = leaveNow;
         students[sid].online = false;
 
-        // Create new rejoin entry
         const rejoinEntry = {name: name+' (rejoined)', online:true, lastLatency:null, joinTime:new Date(), leaveTime:null, latencies:[], heartbeats:0, disconnectTimer:null, isRejoin:true, parentKey:sid};
         students[sid].rejoinEntry = rejoinEntry;
         students[sid].online = true;
@@ -714,7 +710,15 @@
   }
 
   async function handleLogout() {
-    // Clear all cached roles
+    // If a session is active, end it first so students get notified
+    if (sessionId) {
+      try {
+        await client.from('sessions').update({is_active:false}).eq('id',sessionId);
+        if (channel) {
+          await channel.send({ type:'broadcast', event:'session_ended', payload:{} });
+        }
+      } catch(e) {}
+    }
     Object.keys(sessionStorage).filter(k => k.startsWith('cam_role_')).forEach(k => sessionStorage.removeItem(k));
     if (channel) { try { await channel.untrack(); client.removeChannel(channel); } catch(e){} }
     await client.auth.signOut();
