@@ -323,6 +323,7 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4c2lxa2RscGtuamV2cmViZmhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTAwMjQsImV4cCI6MjA4NzkyNjAyNH0.RCm76GmFOJxqwQFQmu9ZD-uNs2zJeyYZvH9tXN3rqP0';
   const { createClient }  = supabase;
 
+
   // Per-tab auth so multiple students can use same browser
   const _tid = sessionStorage.getItem('_tab') || (()=>{ const t=Math.random().toString(36).slice(2); sessionStorage.setItem('_tab',t); return t; })();
   const _store = { getItem: k=>sessionStorage.getItem(_tid+k), setItem:(k,v)=>sessionStorage.setItem(_tid+k,v), removeItem:k=>sessionStorage.removeItem(_tid+k) };
@@ -539,11 +540,19 @@
 
     channel = client.channel(channelName);
 
+    // If subscribe never fires within 8s, force retry
+    const subscribeTimeout = setTimeout(() => {
+      addLog('warn', 'Channel timeout, retrying...');
+      try { client.removeChannel(channel); channel = null; } catch(e) {}
+      setupChannel();
+    }, 8000);
+
     channel.on('broadcast', { event: 'session_ended' }, () => {
       showSessionEnded();
     });
 
     channel.subscribe(async (status) => {
+      clearTimeout(subscribeTimeout);
       if (status === 'SUBSCRIBED') {
         setStatus('connected');
         addLog('info', 'Connected to session channel');
