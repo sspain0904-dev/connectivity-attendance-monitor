@@ -413,25 +413,51 @@
     const workerUrl = URL.createObjectURL(workerBlob);
     const worker = new Worker(workerUrl);
 
+    let missedPings = 0;
+
     worker.onmessage = async () => {
       const ms = await measureLatency();
       updateLatencyDisplay(ms);
 
-      await channel.send({
-        type: 'broadcast', event: 'heartbeat',
-        payload: {
-          student_id: currentUser.id,
-          name:       currentProfile.full_name,
-          latency_ms: ms,
-          timestamp:  new Date().toISOString(),
+      // Try sending — if channel is dead, reconnect it silently
+      let sendResult = null;
+      try {
+        sendResult = await channel.send({
+          type: 'broadcast', event: 'heartbeat',
+          payload: {
+            student_id: currentUser.id,
+            name:       currentProfile.full_name,
+            latency_ms: ms,
+            timestamp:  new Date().toISOString(),
+          }
+        });
+      } catch(e) { sendResult = 'error'; }
+
+      // If channel send failed, reconnect the channel (WebSocket dropped silently)
+      if (sendResult === 'error' || sendResult?.error) {
+        addLog('warn', 'Channel lost, reconnecting...');
+        try { client.removeChannel(channel); channel = null; } catch(e) {}
+        await setupChannel();
+        return; // skip log this tick, next tick will send properly
+      }
+
+      if (ms === null) {
+        missedPings++;
+        addLog('error', `Connection timeout! (${missedPings} missed)`);
+        if (missedPings >= 6 && !document.getElementById('rejoin-banner')) {
+          setStatus('disconnected');
+          const banner = document.createElement('div');
+          banner.id = 'rejoin-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#7c3aed;color:#fff;text-align:center;padding:.75rem;font-size:.85rem;font-weight:600;z-index:999';
+          banner.innerHTML = '⚠ Connection lost — <a href="join.html" style="color:#fff;text-decoration:underline">Click here to rejoin</a>';
+          document.body.prepend(banner);
         }
-      });
+      } else {
+        missedPings = 0;
+        addLog(ms > 200 ? 'warn' : 'info', `Latency — ${ms}ms`);
+      }
 
       heartbeatCount++;
-      addLog(
-        ms === null ? 'error' : ms > 200 ? 'warn' : 'info',
-        ms === null ? 'Connection timeout!' : `Latency — ${ms}ms`
-      );
     };
 
     // Store worker so we can terminate it on logout/leave
@@ -592,10 +618,13 @@
         addLog('error', 'Connection lost. Please rejoin the session using the passcode.');
 
         // Show rejoin banner
-        const banner = document.createElement('div');
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#7c3aed;color:#fff;text-align:center;padding:.75rem;font-size:.85rem;font-weight:600;z-index:999';
-        banner.innerHTML = '⚠ Connection lost — <a href="join.html" style="color:#fff;text-decoration:underline">Click here to rejoin</a>';
-        document.body.prepend(banner);
+        if (!document.getElementById('rejoin-banner')) {
+          const banner = document.createElement('div');
+          banner.id = 'rejoin-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#7c3aed;color:#fff;text-align:center;padding:.75rem;font-size:.85rem;font-weight:600;z-index:999';
+          banner.innerHTML = '⚠ Connection lost — <a href="join.html" style="color:#fff;text-decoration:underline">Click here to rejoin</a>';
+          document.body.prepend(banner);
+        }
       }
     });
   }
@@ -616,6 +645,7 @@
       }
     }, 15000);
   
+
   init();
 </script>
 </body>
