@@ -518,12 +518,17 @@
     addLog('info', `Joined session: ${courseName}`);
     addLog('info', `Signed in as ${profile?.full_name ?? currentUser.email}`);
 
-    // 6. Wake up Supabase then connect
+    // 6. Wake up Supabase then connect — retry until server responds
     addLog('info', 'Waking up server...');
-    for (let i = 0; i < 3; i++) {
-      try { await fetch(SUPABASE_URL + '/health', { method:'HEAD', cache:'no-store' }); break; } catch(e) {}
-      await new Promise(r => setTimeout(r, 1000));
+    let awake = false;
+    for (let i = 0; i < 10; i++) {
+      try {
+        const res = await fetch(SUPABASE_URL + '/health', { method:'HEAD', cache:'no-store' });
+        if (res.ok || res.status === 405) { awake = true; break; }
+      } catch(e) {}
+      await new Promise(r => setTimeout(r, 2000));
     }
+    if (!awake) addLog('warn', 'Server slow to respond, trying anyway...');
     await setupChannel();
   }
 
@@ -566,7 +571,13 @@
         if (!uptimeTimer) startUptime();
 
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        // No auto-reconnect — student must rejoin manually
+        // If we never successfully connected (still on Init), retry automatically
+        if (document.getElementById('stat-status')?.textContent === 'Init') {
+          addLog('warn', 'Connection failed, retrying...');
+          setTimeout(() => setupChannel(), 3000);
+          return;
+        }
+        // Otherwise — student must rejoin manually
         setStatus('disconnected');
         if (heartbeatTimer) { heartbeatTimer.terminate?.() || clearInterval(heartbeatTimer); heartbeatTimer = null; }
         if (uptimeTimer) { clearInterval(uptimeTimer); uptimeTimer = null; }
